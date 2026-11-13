@@ -19,6 +19,13 @@ jobs:
           java-version: '21'
       - name: Test Vulkan-safe ReFlash against offline API fakes
         run: bash vulkan-tests/test.sh
+        
+      - name: Install Java 25 for Fabric Loom
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
       - name: Install Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
