@@ -1,0 +1,12 @@
+.gradle/
+build/
+run/
+out/
+.idea/
+*.iml
+.smoke-build/
+*.class
+
+.reflash-build-tools/
+reflash-build.log
+*.jar

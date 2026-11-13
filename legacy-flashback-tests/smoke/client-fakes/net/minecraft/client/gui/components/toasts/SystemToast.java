@@ -1,0 +1,1 @@
+package net.minecraft.client.gui.components.toasts;import net.minecraft.network.chat.Component;public final class SystemToast {public static final class SystemToastId {} public static void add(Object toasts,SystemToastId id,Component title,Component msg){}}

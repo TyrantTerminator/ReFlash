@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "reflash",
+  "version": "${version}",
+  "name": "ReFlash",
+  "description": "VulkanMod-compatible ReFlash Studio UI using Momenton for packet/state replay recording.",
+  "authors": [
+    "ReFlash Project"
+  ],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "dev.reflash.client.ReFlashClient"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.19.3",
+    "minecraft": "1.21.11",
+    "java": ">=21",
+    "fabric-api": "*",
+    "momenton": ">=1.0.0"
+  },
+  "breaks": {
+    "flashback": "*"
+  }
+}

@@ -1,0 +1,15 @@
+REFLASH VULKAN - GET THE REAL FABRIC JAR
+
+1. Install Git for Windows: https://git-scm.com/install/win
+2. Extract this ZIP (do not run from inside ZIP).
+3. Double-click PUBLISH-AND-BUILD-WINDOWS.bat in the extracted folder.
+4. Sign into GitHub if asked (TyrantTerminator). It uploads source to your existing ReFlash repo.
+5. Open https://github.com/TyrantTerminator/ReFlash/actions
+6. Click latest ReFlash Vulkan Alpha CI run. If green, download the JAR artifact.
+7. If red, copy the first build error/log and send it to ChatGPT for a code fix.
+
+NOTE: This is a Vulkan-first alpha dependent on separately installed Momenton.
+The published source does NOT yet deliver custom 1440p120 Vulkan export or full
+cinematic camera keyframes. GitHub Actions tests compilation, not gameplay.
+
+Do not enable force push or share a GitHub token.

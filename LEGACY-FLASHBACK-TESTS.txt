@@ -1,0 +1,1 @@
+The smoke/*.java tests from v0.8 target Flashback and are archived for historical reference. Vulkan contract tests are in vulkan-tests/ and replace them. Do not claim they prove Momenton runtime compatibility.

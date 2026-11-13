@@ -1,0 +1,1 @@
+package net.fabricmc.fabric.api.client.keybinding.v1;import net.minecraft.client.KeyMapping;public final class KeyBindingHelper {public static int registrations;public static KeyMapping registerKeyBinding(KeyMapping key){registrations++;return key;}}

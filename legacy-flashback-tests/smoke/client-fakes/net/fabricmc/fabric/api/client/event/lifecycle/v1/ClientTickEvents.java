@@ -1,0 +1,1 @@
+package net.fabricmc.fabric.api.client.event.lifecycle.v1; import java.util.function.Consumer;import net.minecraft.client.Minecraft;public final class ClientTickEvents {public static final Event END_CLIENT_TICK = new Event();public static final class Event {public Consumer<Minecraft> listener; public void register(Consumer<Minecraft> c){listener=c;}}}
