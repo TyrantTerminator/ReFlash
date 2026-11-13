@@ -25,7 +25,7 @@ public final class ReFlashPauseMenu {
         ScreenEvents.AFTER_INIT.register((client, screen, width, height) -> {
             boolean isPause = screen instanceof PauseScreen;
             if (!isPause && !(screen instanceof TitleScreen)) return;
-            int x = width - 30;
+            int x = isPause ? width - 30 : 8;
             int y = isPause ? 8 : 35;
             Button button = Button.builder(Component.empty(), ignored ->
                     client.setScreen(new ReFlashScreen(screen)))

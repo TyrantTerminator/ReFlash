@@ -69,6 +69,8 @@ public class GuiGraphics {
         gg.dispose();
       } catch(Exception e){ throw new RuntimeException(e); }
   }
+  public int guiWidth(){ return image.getWidth(); }
+  public int guiHeight(){ return image.getHeight(); }
   public int getPixel(int x,int y){return image.getRGB(x,y);}
   public void save(Path file) throws Exception {ImageIO.write(image,"png",file.toFile());}
 }

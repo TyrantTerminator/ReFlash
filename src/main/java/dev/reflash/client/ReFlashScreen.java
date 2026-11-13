@@ -3,6 +3,8 @@ package dev.reflash.client;
 import dev.reflash.core.ExportPreset;
 import dev.reflash.core.PerformanceSampler;
 import dev.reflash.core.ReplayIndex;
+import dev.reflash.core.VideoPostProcessor;
+import dev.reflash.core.Preferences;
 import dev.reflash.core.StudioLayout;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.gui.GuiGraphics;
@@ -27,11 +29,11 @@ import java.util.function.Supplier;
  * widgets. The custom drawing code runs only while this menu is open: no gameplay HUD cost.
  */
 public final class ReFlashScreen extends Screen {
-    private enum Page { CAPTURE, LIBRARY, EDITOR, PERFORMANCE, SETTINGS }
+    private enum Page { CAPTURE, LIBRARY, EDITOR, EXPORT, PERFORMANCE, SETTINGS }
     private enum Skin { PRIMARY, SECONDARY, QUIET, DANGER, NAV, ROW, TOGGLE }
     private record Control(Button widget, Supplier<String> caption, Skin skin, boolean selected, String icon) { }
-    private static final String[] NAV = { "Home", "Library", "Editor", "Performance", "Settings" };
-    private static final String[] NAV_ICONS = { "home", "library", "editor", "performance", "settings" };
+    private static final String[] NAV = { "Home", "Library", "Editor", "Export", "Performance", "Settings" };
+    private static final String[] NAV_ICONS = { "home", "library", "editor", "export", "performance", "settings" };
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("MMM d, HH:mm", Locale.ENGLISH)
             .withZone(ZoneId.systemDefault());
     private final Screen parent;
@@ -62,7 +64,7 @@ public final class ReFlashScreen extends Screen {
                 add(sx+13,yy,navW,39,()->NAV[target.ordinal()],Skin.NAV,p==page,NAV_ICONS[p.ordinal()],()->selectPage(target));
             }
         } else {
-            int x=sx+12, tabW=(sw-24)/5, y=sy+53;
+            int x=sx+12, tabW=(sw-24)/Page.values().length, y=sy+53;
             for(Page p:Page.values()){
                 final Page next=p;
                 add(x+p.ordinal()*tabW,y,tabW-3,28,()->NAV[next.ordinal()],Skin.NAV,p==page,NAV_ICONS[p.ordinal()],()->selectPage(next));
@@ -72,6 +74,7 @@ public final class ReFlashScreen extends Screen {
             case CAPTURE -> initCapture();
             case LIBRARY -> initLibrary();
             case EDITOR -> initEditor();
+            case EXPORT -> initExport();
             case PERFORMANCE -> initPerformance();
             case SETTINGS -> initSettings();
         }
@@ -103,6 +106,17 @@ public final class ReFlashScreen extends Screen {
         }
     }
 
+    private void editLatestReplay() {
+        refreshLibrary();
+        if (replayList.isEmpty()) {
+            selectPage(Page.LIBRARY);
+            notice("No recordings yet. Finish a recording first.");
+            return;
+        }
+        selectedReplay=0;
+        editSelectedReplay();
+    }
+
     private void initCapture(){
         int x=layout.contentX(),y=layout.contentY(),w=layout.contentWidth(),h=layout.contentHeight();
         boolean compact=layout.ultraCompact();
@@ -120,7 +134,7 @@ public final class ReFlashScreen extends Screen {
             }
         });
         add(x+15+bw+gap,ay,bw,28,()->"Recordings",Skin.SECONDARY,false,"library",()->selectPage(Page.LIBRARY));
-        if(buttonCount==3) add(x+15+(bw+gap)*2,ay,bw,28,()->"Editor",Skin.SECONDARY,false,"editor",()->selectPage(Page.EDITOR));
+        if(buttonCount==3) add(x+15+(bw+gap)*2,ay,bw,28,()->"Edit Latest",Skin.SECONDARY,false,"editor",this::editLatestReplay);
         if(!compact&&h>280){
             int cardY=heroY+heroH+14;
             int avail=h-(cardY-y)-6;
@@ -180,17 +194,78 @@ public final class ReFlashScreen extends Screen {
             if(MomentonBridge.isInReplay()) {
                 if (!MomentonBridge.openNativeEditor(minecraft)) notice("Momenton editor unavailable");
             } else {
-                selectPage(Page.LIBRARY);
-                notice("Choose a replay, then click Edit Selected");
+                if(!replayList.isEmpty())editLatestReplay();
+                else { selectPage(Page.LIBRARY); notice("Record a replay first, then Edit Selected"); }
             }
         });
         if(w>=330)add(x+20+primaryW,actionsY,Math.min(172,w-primaryW-31),28,
-                ()->MomentonBridge.isInReplay()?"Export Replay":"Export Limitations",Skin.SECONDARY,false,"export",()->{
+                ()->MomentonBridge.isInReplay()?"Render Replay":"Export Settings",Skin.SECONDARY,false,"export",()->{
                     if(MomentonBridge.isInReplay()) {
                         if(!MomentonBridge.openNativeExport(minecraft,this))notice("Momenton export window unavailable");
-                    }else notice("Under VulkanMod, video exports are window-sized");
+                    }else selectPage(Page.EXPORT);
                 });
     }
+
+    private static final int[][] SIZES = {{1280,720},{1920,1080},{2560,1440},{3840,2160}};
+    private static final int[] RATES = {30,60,120,240};
+    private void nextSize() {
+        var p=ReFlashClient.preferences();int index=0;
+        for(int i=0;i<SIZES.length;i++)if(SIZES[i][0]==p.outputWidth())index=i;
+        int[] size=SIZES[(index+1)%SIZES.length];p.setOutputPreset(size[0],size[1],p.outputFps());
+        ReFlashClient.savePreferences();rebuildWidgets();
+    }
+    private void nextRate() {
+        var p=ReFlashClient.preferences();int index=0;
+        for(int i=0;i<RATES.length;i++)if(RATES[i]==p.outputFps())index=i;
+        p.setOutputPreset(p.outputWidth(),p.outputHeight(),RATES[(index+1)%RATES.length]);
+        ReFlashClient.savePreferences();rebuildWidgets();
+    }
+    private void initExport() {
+        int x=layout.contentX(),y=layout.contentY(),w=layout.contentWidth(),h=layout.contentHeight();
+        int top=y+(layout.ultraCompact()?28:65),row=47;
+        int left=Math.max(x+14,x+w-190),bw=Math.max(74,Math.min(169,x+w-left-12));
+        add(left,top,bw,30,()->ReFlashClient.preferences().outputWidth()+"x"+ReFlashClient.preferences().outputHeight(),
+                Skin.SECONDARY,false,"export",this::nextSize);
+        add(left,top+row,bw,30,()->ReFlashClient.preferences().outputFps()+" FPS",
+                Skin.SECONDARY,false,"performance",this::nextRate);
+        if(h>170){
+            int by=y+h-40;
+            int mainW=Math.max(85,Math.min(220,w/2-12));
+            add(x+10,by,mainW,29,()->MomentonBridge.isInReplay()?"Render Current Replay":"Select Replay to Render",
+                    Skin.PRIMARY,false,"editor",()->{
+                if(MomentonBridge.isInReplay()) {
+                    if(!MomentonBridge.openNativeExport(minecraft,this))notice("Cannot open Momenton renderer");
+                } else selectPage(Page.LIBRARY);
+            });
+            if(w>=360)add(x+20+mainW,by,Math.max(90,w-mainW-30),29,
+                    ()->VideoPostProcessor.running()?"Cancel Enhance":"Enhance Last MP4",
+                    Skin.SECONDARY,false,"export",()->{
+                if(VideoPostProcessor.running()){VideoPostProcessor.cancel();return;}
+                if(!VideoPostProcessor.startLatest(FabricLoader.getInstance().getGameDir(),ReFlashClient.preferences())){
+                    notice(VideoPostProcessor.status());
+                }else notice("Video processing started; this runs offline");
+            });
+        }
+    }
+    private void drawExport(GuiGraphics g) {
+        int x=layout.contentX(),y=layout.contentY(),w=layout.contentWidth(),h=layout.contentHeight();
+        heading(g,"Export & Enhance","Render replay first, then optionally enhance the saved MP4",x,y);
+        int top=y+(layout.ultraCompact()?28:65);
+        StudioTheme.softPanel(g,x,top-8,w,Math.max(90,Math.min(175,h-110)));
+        StudioTheme.label(g,font,"OUTPUT RESOLUTION",x+18,top+9,StudioTheme.CYAN);
+        StudioTheme.label(g,font,"OUTPUT FRAME RATE",x+18,top+56,StudioTheme.PURPLE);
+        if(h>230){
+            StudioTheme.label(g,font,"Native Vulkan rendering is limited to the game window.",x+17,top+114,StudioTheme.AMBER);
+            StudioTheme.label(g,font,"This step upscales pixels. Low-FPS video gains duplicate frames.",x+17,top+135,StudioTheme.MUTED);
+        }
+        if(h>280){
+            int sy=top+186;
+            StudioTheme.softPanel(g,x,sy,w,Math.max(42,Math.min(75,y+h-sy-49)));
+            StudioTheme.label(g,font,"FFMPEG VIDEO ENHANCEMENT",x+12,sy+12,StudioTheme.TEXT);
+            StudioTheme.label(g,font,fit(VideoPostProcessor.status(),w-25),x+12,sy+34,StudioTheme.MUTED);
+        }
+    }
+
     private void initPerformance(){
         int x=layout.contentX(),y=layout.contentY(),w=layout.contentWidth(),h=layout.contentHeight();
         add(x+12,y+h-39,Math.min(235,w-24),29,
@@ -199,7 +274,7 @@ public final class ReFlashScreen extends Screen {
     private void initSettings(){
         int x=layout.contentX(),y=layout.contentY(),w=layout.contentWidth(),h=layout.contentHeight();
         int base=y+(layout.ultraCompact()?18:43);
-        int rowH=layout.ultraCompact()?31:Math.min(61,Math.max(34,(h-55)/3));
+        int rowH=layout.ultraCompact()?31:Math.min(53,Math.max(31,(h-55)/4));
         int buttonH=Math.min(29,rowH-4);
         add(x+w-158,base+(rowH-buttonH)/2,143,buttonH,()->"Change Keybinds",Skin.PRIMARY,false,"settings",this::openKeybinds);
         add(x+w-108,base+rowH+(rowH-buttonH)/2,93,buttonH,
@@ -211,6 +286,11 @@ public final class ReFlashScreen extends Screen {
                 ()->ReFlashClient.preferences().notifications()?"Enabled":"Disabled",Skin.TOGGLE,
                 ReFlashClient.preferences().notifications(),"",()->{
             var p=ReFlashClient.preferences();p.setNotifications(!p.notifications());ReFlashClient.savePreferences();rebuildWidgets();
+        });
+        add(x+w-138,base+rowH*3+(rowH-buttonH)/2,123,buttonH,
+                ()->ReFlashClient.preferences().hudPosition().name().replace('_',' '),Skin.SECONDARY,false,"record",()->{
+            var p=ReFlashClient.preferences();p.setHudPosition(p.hudPosition().next());
+            ReFlashClient.savePreferences();rebuildWidgets();
         });
     }
     private void refreshLibrary(){
@@ -242,6 +322,7 @@ public final class ReFlashScreen extends Screen {
             case CAPTURE -> drawCapture(g);
             case LIBRARY -> drawLibrary(g);
             case EDITOR -> drawEditor(g);
+            case EXPORT -> drawExport(g);
             case PERFORMANCE -> drawPerformance(g);
             case SETTINGS -> drawSettings(g);
         }
@@ -282,7 +363,7 @@ public final class ReFlashScreen extends Screen {
                 StudioTheme.label(g,font,"MANAGER: " + ReFlashClient.managerKeyName(),x+20,y+h-48,StudioTheme.SOFT);
             }
         }
-        StudioTheme.label(g,font,"v0.9.1 VK / FABRIC 1.21.11",x+w-174,y+h-16,StudioTheme.SOFT);
+        StudioTheme.label(g,font,"v0.9.2 VK / FABRIC 1.21.11",x+w-174,y+h-16,StudioTheme.SOFT);
     }
     private void heading(GuiGraphics g,String title,String subtitle,int x,int y){
         StudioTheme.label(g,font,title,x+2,y+5,StudioTheme.TEXT);
@@ -372,18 +453,20 @@ public final class ReFlashScreen extends Screen {
         if(wide){
             int rx=x+listW+11,rw=w-listW-11;
             StudioTheme.softPanel(g,rx,top,rw,Math.max(58,h-(top-y)-44));
-            StudioTheme.sceneArt(g,rx+10,top+12,rw-20,Math.min(166,Math.max(30,h/3)),false);
-            int textY=top+Math.min(166,Math.max(30,h/3))+24;
-            StudioTheme.label(g,font,"PROJECT DETAILS",rx+14,textY,StudioTheme.CYAN);
-            String name=selectedReplay>=0&&selectedReplay<replayList.size()?replayList.get(selectedReplay).fileName():"Select a recording";
-            StudioTheme.label(g,font,fit(name,rw-30),rx+14,textY+20,StudioTheme.TEXT);
-            StudioTheme.label(g,font,"Visual: decorative artwork",rx+14,textY+38,StudioTheme.SOFT);
-            if(h>340)StudioTheme.label(g,font,"Use Open Replay to inspect actual footage",rx+14,textY+59,StudioTheme.MUTED);
+            StudioTheme.icon(g,"camera",rx+16,top+18,StudioTheme.PURPLE);
+            StudioTheme.label(g,font,"REPLAY DETAILS",rx+41,top+20,StudioTheme.CYAN);
+            String name=selectedReplay>=0&&selectedReplay<replayList.size()?replayList.get(selectedReplay).fileName():"No replay selected";
+            StudioTheme.label(g,font,fit(name,rw-29),rx+14,top+52,StudioTheme.TEXT);
+            if(h>210) {
+                StudioTheme.label(g,font,fit("This is not a replay thumbnail.",rw-25),rx+14,top+80,StudioTheme.SOFT);
+                StudioTheme.label(g,font,fit("Use Edit Selected for the cut timeline.",rw-25),rx+14,top+105,StudioTheme.MUTED);
+                StudioTheme.label(g,font,fit("The world loads before editor opens.",rw-25),rx+14,top+129,StudioTheme.MUTED);
+            }
         }
     }
     private void drawEditor(GuiGraphics g){
         int x=layout.contentX(),y=layout.contentY(),w=layout.contentWidth(),h=layout.contentHeight();
-        heading(g,"Cinematic Editor","Momenton replay playback and native editor; Vulkan output is window-sized",x,y);
+        heading(g,"Replay Editor","Select a saved replay to trim, split, reorder and render clips",x,y);
         int top=y+(layout.ultraCompact()?24:46);
         int hh=Math.max(60,Math.min(255,h-125));
         StudioTheme.softPanel(g,x,top,w,hh);
@@ -391,8 +474,8 @@ public final class ReFlashScreen extends Screen {
         StudioTheme.rect(g,x+2,top+2,w*50/100,hh-4,0xBB15132B);
         StudioTheme.label(g,font,"VULKAN REPLAY EDITOR",x+18,top+15,StudioTheme.PURPLE);
         if(hh>100){
-            StudioTheme.label(g,font,"Record the moments, edit later.",x+18,top+45,StudioTheme.TEXT);
-            StudioTheme.label(g,font,"Native timeline editing through Momenton",x+18,top+71,StudioTheme.MUTED);
+            StudioTheme.label(g,font,"Edit the recording, not your FPS.",x+18,top+45,StudioTheme.TEXT);
+            StudioTheme.label(g,font,"Momenton editor supports clip trimming and splitting",x+18,top+71,StudioTheme.MUTED);
             StudioTheme.label(g,font,"Freecam / 3rd person: not implemented",x+18,top+93,StudioTheme.CYAN);
         }
         int by=top+hh+13;
@@ -400,14 +483,14 @@ public final class ReFlashScreen extends Screen {
             StudioTheme.softPanel(g,x,by,w,Math.min(90,y+h-46-by));
             StudioTheme.label(g,font,"ACTUAL REPLAY TOOLS",x+14,by+14,StudioTheme.TEXT);
             if(w>380){
-                StudioTheme.label(g,font,"Open a .momenton replay, then enter Momenton's native timeline editor.",x+14,by+37,StudioTheme.MUTED);
-                StudioTheme.label(g,font,"Vulkan 1440p, camera paths and third-person export remain unimplemented.",x+14,by+57,StudioTheme.AMBER);
+                StudioTheme.label(g,font,"Library > select a recording > Edit Selected. Playback loads first.",x+14,by+37,StudioTheme.MUTED);
+                StudioTheme.label(g,font,"Native Vulkan output is window-sized. Export tab can upscale later.",x+14,by+57,StudioTheme.AMBER);
             }
         }
     }
     private void drawPerformance(GuiGraphics g){
         int x=layout.contentX(),y=layout.contentY(),w=layout.contentWidth(),h=layout.contentHeight();
-        heading(g,"Performance Lab","Replay recording vs gameplay FPS. No frame capture in the benchmark.",x,y);
+        heading(g,"FPS Comparison","F12 toggles this test on and off. The button below does the same.",x,y);
         int top=y+(layout.ultraCompact()?24:53),hh=Math.max(54,Math.min(158,h-94));
         var test=ReFlashClient.performanceSampler();var result=test.result();
         int gap=12, cw=(w-gap)/2;
@@ -424,22 +507,25 @@ public final class ReFlashScreen extends Screen {
     }
     private void drawSettings(GuiGraphics g){
         int x=layout.contentX(),y=layout.contentY(),w=layout.contentWidth(),h=layout.contentHeight();
-        heading(g,"Manager & Controls","One click or one custom key opens everything.",x,y);
+        heading(g,"Manager & Controls","Remap shortcuts and choose where the recording badge appears.",x,y);
         int base=y+(layout.ultraCompact()?18:43);
-        int rh=layout.ultraCompact()?31:Math.min(61,Math.max(34,(h-55)/3));
-        String[] labels={"MANAGER KEY","AUTO-RECORD","NOTIFICATIONS"};
-        String[] details={"Current: " + ReFlashClient.managerKeyName(),
-                "Record automatically after joining a world","Show Minecraft recording and save notifications"};
-        for(int i=0;i<3;i++){
-            int yy=base+i*rh;if(yy+rh-2>y+h)break;
-            StudioTheme.softPanel(g,x,yy,w,rh-2);
-            if(!layout.ultraCompact())StudioTheme.icon(g,i==0?"settings":i==1?"record":"spark",x+17,yy+16,i==0?StudioTheme.PURPLE:StudioTheme.CYAN);
+        int rh=layout.ultraCompact()?31:Math.min(53,Math.max(31,(h-55)/4));
+        String[] labels={"MANAGER KEY","AUTO-RECORD","NOTIFICATIONS","RECORDING BADGE"};
+        String[] details={"Current: "+ReFlashClient.managerKeyName(),
+                "Record automatically after joining a world",
+                "Show Minecraft recording and save notifications",
+                "Top left, top right or hidden while playing"};
+        for(int i=0;i<labels.length;i++){
+            int yy=base+i*rh;if(yy+rh-4>y+h)break;
+            StudioTheme.softPanel(g,x,yy,w,rh-4);
+            if(!layout.ultraCompact())StudioTheme.icon(g,i==0?"settings":i==1?"record":i==2?"spark":"camera",
+                    x+17,yy+Math.max(8,(rh-16)/2),i==0?StudioTheme.PURPLE:StudioTheme.CYAN);
             int textX=x+(layout.ultraCompact()?9:42);
             StudioTheme.label(g,font,fit(labels[i],Math.max(25,w-165)),textX,yy+7,StudioTheme.TEXT);
-            if(rh>=55&&w>=340)StudioTheme.label(g,font,fit(details[i],Math.max(25,w-165)),textX,yy+29,StudioTheme.MUTED);
+            if(rh>=40&&w>=340)StudioTheme.label(g,font,fit(details[i],Math.max(25,w-165)),textX,yy+24,StudioTheme.MUTED);
         }
-        if(base+rh*3+30<y+h){
-            StudioTheme.label(g,font,"CONTROLS -> KEY BINDS -> REFLASH",x+6,base+rh*3+10,StudioTheme.PURPLE);
+        if(base+rh*4+24<y+h){
+            StudioTheme.label(g,font,"F8 RECORD   /   F12 TOGGLE FPS TEST   /   F7 MANAGER",x+6,base+rh*4+10,StudioTheme.PURPLE);
         }
     }
     private void drawControl(GuiGraphics g,Control c){

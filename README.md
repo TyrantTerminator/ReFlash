@@ -1,3 +1,5 @@
+**Update v0.9.2: see [RELEASE-0.9.2.md](RELEASE-0.9.2.md) for logo, HUD and video post-export improvements and limitations.**
+
 # ReFlash 0.9.1 — Compact Access / Vulkan Alpha
 
 Minecraft **1.21.11** • Fabric • Java 21 runtime • **Momenton 1.0.0 required** • VulkanMod-friendly addon.

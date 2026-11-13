@@ -11,6 +11,11 @@ import java.util.Properties;
 /** Pure Java config: never does any work in the render loop. */
 public final class Preferences {
     private final Path file;
+    public enum HudPosition { TOP_LEFT, TOP_RIGHT, OFF;
+        public HudPosition next() { return values()[(ordinal()+1)%values().length]; }
+    }
+    private HudPosition hudPosition = HudPosition.TOP_RIGHT;
+    private int outputWidth = 2560, outputHeight = 1440, outputFps = 120;
     private boolean autoRecord = false;
     private boolean showNotifications = true;
     private ExportPreset exportPreset = ExportPreset.QHD120;
@@ -26,6 +31,12 @@ public final class Preferences {
             p.load(in);
         }
         autoRecord = Boolean.parseBoolean(p.getProperty("autoRecord", "false"));
+        try { hudPosition = HudPosition.valueOf(p.getProperty("recordHud", "TOP_RIGHT")); }
+        catch (IllegalArgumentException ex) { hudPosition = HudPosition.TOP_RIGHT; }
+        try { setOutputPreset(Integer.parseInt(p.getProperty("outputWidth", "2560")),
+                Integer.parseInt(p.getProperty("outputHeight", "1440")),
+                Integer.parseInt(p.getProperty("outputFps", "120"))); }
+        catch (NumberFormatException ex) { setOutputPreset(2560, 1440, 120); }
         showNotifications = Boolean.parseBoolean(p.getProperty("notifications", "true"));
         exportPreset = ExportPreset.fromId(p.getProperty("exportPreset", "QHD120"));
     }
@@ -34,6 +45,10 @@ public final class Preferences {
         Files.createDirectories(file.toAbsolutePath().getParent());
         Properties p = new Properties();
         p.setProperty("autoRecord", Boolean.toString(autoRecord));
+        p.setProperty("recordHud", hudPosition.name());
+        p.setProperty("outputWidth", Integer.toString(outputWidth));
+        p.setProperty("outputHeight", Integer.toString(outputHeight));
+        p.setProperty("outputFps", Integer.toString(outputFps));
         p.setProperty("notifications", Boolean.toString(showNotifications));
         p.setProperty("exportPreset", exportPreset.id());
         Path part = file.resolveSibling(file.getFileName() + ".tmp");
@@ -47,6 +62,17 @@ public final class Preferences {
         }
     }
 
+    public HudPosition hudPosition() { return hudPosition; }
+    public void setHudPosition(HudPosition p) { hudPosition = java.util.Objects.requireNonNull(p); }
+    public int outputWidth() { return outputWidth; }
+    public int outputHeight() { return outputHeight; }
+    public int outputFps() { return outputFps; }
+    public void setOutputPreset(int width, int height, int fps) {
+        if(width<640||height<360||width>3840||height>2160||fps<24||fps>240||width%2!=0||height%2!=0)
+            throw new IllegalArgumentException("Output must be even-sized, <=4K and <=240 FPS");
+        outputWidth=width; outputHeight=height; outputFps=fps;
+    }
+    public String outputLabel() { return outputWidth+"x"+outputHeight+" @ "+outputFps+" FPS"; }
     public boolean autoRecord() { return autoRecord; }
     public boolean notifications() { return showNotifications; }
     public void setAutoRecord(boolean value) { autoRecord = value; }

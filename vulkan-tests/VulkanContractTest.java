@@ -1,6 +1,8 @@
 import dev.reflash.client.MomentonBridge;
 import dev.reflash.core.VulkanSupport;
 import dev.reflash.core.ReplayIndex;
+import dev.reflash.core.VideoPostProcessor;
+import dev.reflash.core.Preferences;
 import com.relapzz.momenton.record.Recorder;
 import com.relapzz.momenton.playback.ReplaySession;
 import com.relapzz.momenton.ui.editor.EditSession;
@@ -40,6 +42,15 @@ public class VulkanContractTest {
     Files.writeString(VulkanSupport.replayFolder(dir).resolve("1.momenton"),"data");
     Files.writeString(VulkanSupport.replayFolder(dir).resolve("ignore.zip"),"data");
     check(ReplayIndex.recent(VulkanSupport.replayFolder(dir),10).size()==1,"library ignores wrong format");
+    check(VideoPostProcessor.filter(3840,2160,240).contains("fps=240"),"4K240 offline format filter");
+    try { VideoPostProcessor.filter(4096,2160,240); throw new AssertionError("maximum exceeded"); }
+    catch(IllegalArgumentException expected) { }
+    var config=new Preferences(dir.resolve("preferences.properties"));
+    config.setHudPosition(Preferences.HudPosition.TOP_LEFT);
+    config.setOutputPreset(3840,2160,240);config.save();
+    var restored=new Preferences(dir.resolve("preferences.properties"));restored.load();
+    check(restored.hudPosition()==Preferences.HudPosition.TOP_LEFT,"HUD position persistence");
+    check(restored.outputWidth()==3840&&restored.outputFps()==240,"4K240 settings persistence");
     Files.deleteIfExists(Path.of("reflash/bookmarks.tsv"));Files.deleteIfExists(Path.of("reflash"));
     System.out.println("PASS: Momenton native recording, bookmark, replay, browser, editor, export, Vulkan output guard, replay index");
   }

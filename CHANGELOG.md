@@ -1,3 +1,11 @@
+## 0.9.2 Vulkan alpha
+
+- Corrected thumbnail/logo texture sampling and title button placement.
+- Recording HUD top-left / top-right / off.
+- Direct Edit Latest and no fake library preview.
+- Start/stop FPS test feedback; configurable post-render resolution/FPS, max 4K240, with FFmpeg.
+- See RELEASE-0.9.2.md for limitations.
+
 # ReFlash v0.9.1 — Compact-access pass
 
 - Added tiny 22×22 title and pause menu ReFlash launch buttons with embedded icon and tooltip.

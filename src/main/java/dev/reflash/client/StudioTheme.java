@@ -11,7 +11,7 @@ import net.minecraft.resources.Identifier;
  * The only texture displayed inside the live editor is Minecraft's already-rendered world.
  */
 public final class StudioTheme {
-    private static final Identifier LOGO = Identifier.fromNamespaceAndPath("reflash", "textures/gui/reflash_mark.png");
+    private static final Identifier LOGO = Identifier.fromNamespaceAndPath("reflash", "textures/gui/reflash_mark_24.png");
     private static final Identifier MINI_LOGO = Identifier.fromNamespaceAndPath("reflash", "textures/gui/reflash_button.png");
     private static final Identifier LANDSCAPE = Identifier.fromNamespaceAndPath("reflash", "textures/gui/studio_landscape.png");
     private StudioTheme() { }
@@ -113,10 +113,10 @@ public final class StudioTheme {
     }
     /** Branding is a bundled 256px texture. Drawn only when a GUI is open. */
     public static void logo(GuiGraphics g, int x, int y, int size) {
-        if (size > 0) g.blit(RenderPipelines.GUI_TEXTURED, LOGO, x, y, 0, 0, size, size, 256, 256);
+        if (size > 0) g.blit(RenderPipelines.GUI_TEXTURED, LOGO, x, y, 0, 0, size, size, 24, 24);
     }
     public static void tinyLogo(GuiGraphics g, int x, int y) {
-        g.blit(RenderPipelines.GUI_TEXTURED, MINI_LOGO, x, y, 0, 0, 16, 16, 32, 32);
+        g.blit(RenderPipelines.GUI_TEXTURED, MINI_LOGO, x, y, 0, 0, 16, 16, 16, 16);
     }
     /** Decorative image bundled with the mod, NOT a screenshot of a recorded replay.
      *  The same fixed 1024x512 texture is only rendered while Studio's menu is open.

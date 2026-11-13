@@ -3,16 +3,19 @@
 from pathlib import Path
 from zipfile import ZipFile, BadZipFile
 import json, sys
-VERSION = '0.9.1-vulkan-alpha'
+VERSION = '0.9.2-vulkan-alpha'
 REQUIRED = ('dev/reflash/client/ReFlashClient.class',
             'dev/reflash/client/StudioTheme.class',
             'dev/reflash/client/ReFlashPauseMenu.class',
             'dev/reflash/client/ReFlashScreen.class',
+            'dev/reflash/client/ReFlashRecordingHud.class',
+            'dev/reflash/core/VideoPostProcessor.class',
             'dev/reflash/client/MomentonBridge.class',
             'dev/reflash/core/VulkanSupport.class',
             'assets/reflash/textures/gui/studio_landscape.png',
             'assets/reflash/textures/gui/reflash_mark.png',
             'assets/reflash/textures/gui/reflash_button.png',
+            'assets/reflash/textures/gui/reflash_mark_24.png',
             'assets/reflash/icon.png')
 def verify(path):
   path=Path(path)

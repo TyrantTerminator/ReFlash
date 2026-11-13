@@ -61,6 +61,11 @@ public final class MomentonBridge {
     }
 
     public static boolean isRecording() { return booleanCall("record.Recorder", "isRecording"); }
+    public static int recordingTicks() {
+        try { return (int) call("record.Recorder", "elapsedTicks", new Class<?>[0]); }
+        catch (ReflectiveOperationException | LinkageError | RuntimeException ex) { return 0; }
+    }
+
     public static boolean isInReplay() { return booleanCall("playback.ReplaySession", "isPlaying"); }
 
     /** Native Momenton UI, not a duplicate/replacement editor. */

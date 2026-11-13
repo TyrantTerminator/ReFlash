@@ -3,5 +3,5 @@
   "key.reflash.dashboard": "Open ReFlash Manager",
   "key.reflash.record": "Start / Stop Replay Recording",
   "key.reflash.marker": "Save Replay Bookmark",
-  "key.reflash.benchmark": "Compare Recording FPS"
+  "key.reflash.benchmark": "Start / Stop FPS Comparison"
 }

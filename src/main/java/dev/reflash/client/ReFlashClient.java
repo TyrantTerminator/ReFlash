@@ -7,6 +7,7 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.gui.components.toasts.SystemToast;
@@ -26,7 +27,11 @@ public final class ReFlashClient implements ClientModInitializer {
     private static KeyMapping managerBinding;
     private static final PerformanceSampler FPS_METER = new PerformanceSampler();
     private static int startDelayTicks = -1;
-    private static final SystemToast.SystemToastId REFLASH_TOAST = new SystemToast.SystemToastId();
+    private static boolean recordingCached;
+    private static int recordingTicksCached;
+    public static boolean cachedRecording() { return recordingCached; }
+    public static int cachedRecordingTicks() { return recordingTicksCached; }
+
 
     public static Preferences preferences() { return preferences; }
     public static String managerKeyName() {
@@ -61,7 +66,7 @@ public final class ReFlashClient implements ClientModInitializer {
     public static void notifyPlayer(String message) {
         Minecraft client = Minecraft.getInstance();
         if (preferences == null || !preferences.notifications()) return;
-        SystemToast.add(client.getToastManager(), REFLASH_TOAST,
+        SystemToast.add(client.getToastManager(), new SystemToast.SystemToastId(),
                 Component.literal("◆ ReFlash Studio"), Component.literal(message));
     }
 
@@ -72,6 +77,8 @@ public final class ReFlashClient implements ClientModInitializer {
         catch (IOException e) { LOGGER.warning("Could not read ReFlash settings: " + e); }
 
         ReFlashPauseMenu.install();
+        HudElementRegistry.addLast(Identifier.fromNamespaceAndPath("reflash", "recording_indicator"),
+                (graphics, counter) -> ReFlashRecordingHud.render(graphics));
 
         managerBinding = KeyBindingHelper.registerKeyBinding(new KeyMapping(
                 "key.reflash.dashboard", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_F7, CATEGORY));
@@ -91,6 +98,8 @@ public final class ReFlashClient implements ClientModInitializer {
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             MomentonBridge.onClientTick(client);
+            recordingCached = MomentonBridge.isRecording();
+            recordingTicksCached = recordingCached ? MomentonBridge.recordingTicks() : 0;
             while (managerBinding.consumeClick()) {
                 client.setScreen(new ReFlashScreen(client.screen));
             }
