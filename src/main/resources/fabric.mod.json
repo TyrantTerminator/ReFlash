@@ -3,7 +3,7 @@
   "id": "reflash",
   "version": "${version}",
   "name": "ReFlash",
-  "description": "VulkanMod-compatible ReFlash Studio UI using Momenton for packet/state replay recording.",
+  "description": "Compact VulkanMod-friendly replay manager and UI; requires Momenton 1.0.0.",
   "authors": [
     "ReFlash Project"
   ],
@@ -23,5 +23,6 @@
   },
   "breaks": {
     "flashback": "*"
-  }
+  },
+  "icon": "assets/reflash/icon.png"
 }

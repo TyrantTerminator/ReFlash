@@ -48,10 +48,14 @@ public class GuiGraphics {
                    int x,int y,float u,float v,int w,int h,int tw,int th){
       paintCount++;
       try {
-        if(studioArt==null)studioArt=ImageIO.read(Path.of("src/main/resources/assets/reflash/textures/gui/studio_landscape.png").toFile());
+        String which=String.valueOf(texture);
+        BufferedImage art;
+        if(which.contains("reflash_button")) art=ImageIO.read(Path.of("src/main/resources/assets/reflash/textures/gui/reflash_button.png").toFile());
+        else if(which.contains("reflash_mark"))art=ImageIO.read(Path.of("src/main/resources/assets/reflash/textures/gui/reflash_mark.png").toFile());
+        else { if(studioArt==null)studioArt=ImageIO.read(Path.of("src/main/resources/assets/reflash/textures/gui/studio_landscape.png").toFile()); art=studioArt; }
         Graphics2D gg=image.createGraphics();
         gg.setRenderingHint(RenderingHints.KEY_INTERPOLATION,RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-        gg.drawImage(studioArt,x,y,w,h,null);
+        gg.drawImage(art,x,y,w,h,null);
         gg.dispose();
       } catch(Exception ex){ fill(x,y,x+w,y+h,0xFF282540); }
   }

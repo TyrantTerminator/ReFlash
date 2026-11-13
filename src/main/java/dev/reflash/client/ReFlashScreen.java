@@ -8,6 +8,7 @@ import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.options.controls.KeyBindsScreen;
 import net.minecraft.network.chat.Component;
 
 import java.awt.Desktop;
@@ -84,18 +85,42 @@ public final class ReFlashScreen extends Screen {
         controls.add(new Control(b,s,skin,selected,icon));
     }
 
+    private void openKeybinds() {
+        minecraft.setScreen(new KeyBindsScreen(this, minecraft.options));
+    }
+
+    private void editSelectedReplay() {
+        if (selectedReplay < 0 || selectedReplay >= replayList.size()) {
+            notice("Choose a recording in Library first");
+            return;
+        }
+        if (MomentonBridge.isRecording()) {
+            notice("Stop recording before opening the editor");
+            return;
+        }
+        if (!MomentonBridge.openReplayForEditing(minecraft, replayList.get(selectedReplay).path())) {
+            notice("Could not open editor: check replay format");
+        }
+    }
+
     private void initCapture(){
         int x=layout.contentX(),y=layout.contentY(),w=layout.contentWidth(),h=layout.contentHeight();
         boolean compact=layout.ultraCompact();
         int heroY=y+(compact?20:44), heroH=compact?Math.max(50,h-29):Math.min(243,Math.max(100,h*48/100));
-        int ay=heroY+heroH-39, bw=Math.min(165,Math.max(90,w*31/100));
-        add(x+17,ay,bw,28,()->MomentonBridge.isRecording()?"Stop & Save":"Start Recording",MomentonBridge.isRecording()?Skin.DANGER:Skin.PRIMARY,false,"record",()->{
-            boolean was=MomentonBridge.isRecording();MomentonBridge.toggleRecording(minecraft);
-            notice(was?"Recording stopped / saving":"Recording start requested");
+        int ay=heroY+heroH-39;
+        int gap=8;
+        int buttonCount=w>=435?3:2;
+        int bw=Math.max(75,(w-34-gap*(buttonCount-1))/buttonCount);
+        add(x+15,ay,bw,28,()->MomentonBridge.isRecording()?"Stop & Save":"Start Recording",
+                MomentonBridge.isRecording()?Skin.DANGER:Skin.PRIMARY,false,"record",()->{
+            boolean was=MomentonBridge.isRecording();
+            if (MomentonBridge.toggleRecording(minecraft)) {
+                notice(was?"Recording stopped / saving":"Recording started");
+                rebuildWidgets();
+            }
         });
-        if(w>=385)add(x+24+bw,ay,Math.min(132,w-bw-50),28,()->"Add Marker",Skin.SECONDARY,false,"spark",()->{
-            if(MomentonBridge.markHighlight(minecraft))notice("Bookmark stored in reflash/bookmarks.tsv");
-        });
+        add(x+15+bw+gap,ay,bw,28,()->"Recordings",Skin.SECONDARY,false,"library",()->selectPage(Page.LIBRARY));
+        if(buttonCount==3) add(x+15+(bw+gap)*2,ay,bw,28,()->"Editor",Skin.SECONDARY,false,"editor",()->selectPage(Page.EDITOR));
         if(!compact&&h>280){
             int cardY=heroY+heroH+14;
             int avail=h-(cardY-y)-6;
@@ -134,11 +159,9 @@ public final class ReFlashScreen extends Screen {
         int controlsY=y+h-32;
         add(x+6,controlsY,Math.max(69,Math.min(150,listW*47/100)),25,()->"Open Replay",Skin.PRIMARY,false,"play",this::openSelectedReplay);
         if(wide){
-            add(x+listW+14,controlsY,Math.max(24,w-listW-27),25,()->"Open Replay",Skin.SECONDARY,false,"editor",()->{
-                if(selectedReplay>=0)openSelectedReplay();else MomentonBridge.openReplayBrowser(minecraft,this);
-            });
+            add(x+listW+14,controlsY,Math.max(24,w-listW-27),25,()->"Edit Selected",Skin.SECONDARY,false,"editor",this::editSelectedReplay);
         }else if(w>=245){
-            add(x+Math.min(155,listW*47/100)+12,controlsY,Math.max(32,w-Math.min(155,listW*47/100)-18),25,()->"Folder",Skin.QUIET,false,"folder",this::openFolder);
+            add(x+Math.min(155,listW*47/100)+12,controlsY,Math.max(32,w-Math.min(155,listW*47/100)-18),25,()->"Edit Selected",Skin.SECONDARY,false,"editor",this::editSelectedReplay);
         }
         if(replayList.size()>libRows()&&h>170){
             add(x+8,startY+libRows()*(rh+7)+2,60,18,()->"< Prev",Skin.QUIET,false,"",()->{
@@ -153,10 +176,13 @@ public final class ReFlashScreen extends Screen {
         int x=layout.contentX(),y=layout.contentY(),w=layout.contentWidth(),h=layout.contentHeight();
         int actionsY=y+Math.max(25,h-38);
         int primaryW=Math.min(210,Math.max(98,w/2));
-        add(x+10,actionsY,primaryW,28,()->MomentonBridge.isInReplay()?"Open Vulkan Editor":"Replay Browser",Skin.PRIMARY,false,"editor",()->{
-            if(MomentonBridge.isInReplay())MomentonBridge.openNativeEditor(minecraft);
-            else if(selectedReplay>=0)openSelectedReplay();
-            else MomentonBridge.openReplayBrowser(minecraft,this);
+        add(x+10,actionsY,primaryW,28,()->MomentonBridge.isInReplay()?"Open Replay Editor":"Choose Recording",Skin.PRIMARY,false,"editor",()->{
+            if(MomentonBridge.isInReplay()) {
+                if (!MomentonBridge.openNativeEditor(minecraft)) notice("Momenton editor unavailable");
+            } else {
+                selectPage(Page.LIBRARY);
+                notice("Choose a replay, then click Edit Selected");
+            }
         });
         if(w>=330)add(x+20+primaryW,actionsY,Math.min(172,w-primaryW-31),28,
                 ()->MomentonBridge.isInReplay()?"Export Replay":"Export Limitations",Skin.SECONDARY,false,"export",()->{
@@ -172,19 +198,20 @@ public final class ReFlashScreen extends Screen {
     }
     private void initSettings(){
         int x=layout.contentX(),y=layout.contentY(),w=layout.contentWidth(),h=layout.contentHeight();
-        int base=y+(layout.ultraCompact()?22:52),rowH=61;
-        add(x+w-108,base+16,93,29,()->ReFlashClient.preferences().autoRecord()?"Enabled":"Disabled",Skin.TOGGLE,ReFlashClient.preferences().autoRecord(),"",()->{
+        int base=y+(layout.ultraCompact()?18:43);
+        int rowH=layout.ultraCompact()?31:Math.min(61,Math.max(34,(h-55)/3));
+        int buttonH=Math.min(29,rowH-4);
+        add(x+w-158,base+(rowH-buttonH)/2,143,buttonH,()->"Change Keybinds",Skin.PRIMARY,false,"settings",this::openKeybinds);
+        add(x+w-108,base+rowH+(rowH-buttonH)/2,93,buttonH,
+                ()->ReFlashClient.preferences().autoRecord()?"Enabled":"Disabled",Skin.TOGGLE,
+                ReFlashClient.preferences().autoRecord(),"",()->{
             var p=ReFlashClient.preferences();p.setAutoRecord(!p.autoRecord());ReFlashClient.savePreferences();rebuildWidgets();
         });
-        if(base+rowH*2<y+h-7)
-            add(x+w-108,base+rowH+16,93,29,()->ReFlashClient.preferences().notifications()?"Enabled":"Disabled",Skin.TOGGLE,ReFlashClient.preferences().notifications(),"",()->{
-                var p=ReFlashClient.preferences();p.setNotifications(!p.notifications());ReFlashClient.savePreferences();rebuildWidgets();
-            });
-        if(base+rowH*3+10<y+h){
-            add(x+w-160,base+rowH*2+15,145,29,()->"Vulkan Limits",Skin.SECONDARY,false,"export",()->{
-                notice("Vulkan exports: window-sized; hardware codecs disabled");
-            });
-        }
+        add(x+w-108,base+rowH*2+(rowH-buttonH)/2,93,buttonH,
+                ()->ReFlashClient.preferences().notifications()?"Enabled":"Disabled",Skin.TOGGLE,
+                ReFlashClient.preferences().notifications(),"",()->{
+            var p=ReFlashClient.preferences();p.setNotifications(!p.notifications());ReFlashClient.savePreferences();rebuildWidgets();
+        });
     }
     private void refreshLibrary(){
         try{
@@ -234,10 +261,10 @@ public final class ReFlashScreen extends Screen {
         StudioTheme.border(g,x,y,w,h,StudioTheme.BORDER);
         StudioTheme.rounded(g,x+1,y+1,w-2,54,StudioTheme.HEADER);
         StudioTheme.gradient(g,x+2,y+2,w-4,2,StudioTheme.CYAN,StudioTheme.PURPLE,48);
-        StudioTheme.icon(g,"editor",x+18,y+18,StudioTheme.PURPLE);
-        StudioTheme.label(g,font,"ReFlash",x+39,y+14,StudioTheme.TEXT);
-        StudioTheme.label(g,font,"STUDIO",x+95,y+14,StudioTheme.PURPLE);
-        StudioTheme.label(g,font,"VULKAN  /  REPLAY  /  CREATE",x+39,y+31,StudioTheme.MUTED);
+        StudioTheme.logo(g,x+12,y+8,37);
+        StudioTheme.label(g,font,"ReFlash",x+50,y+14,StudioTheme.TEXT);
+        StudioTheme.label(g,font,"MANAGER",x+107,y+14,StudioTheme.PURPLE);
+        StudioTheme.label(g,font,"VULKAN  /  REPLAY  /  CREATE",x+50,y+31,StudioTheme.MUTED);
         if(w>=660){
             String status=MomentonBridge.isRecording()?"RECORDING":MomentonBridge.isInReplay()?"REPLAY LOADED":"CAPTURE READY";
             StudioTheme.chip(g,font,status,x+w-172,y+19,119,MomentonBridge.isRecording()?StudioTheme.RED:StudioTheme.GREEN);
@@ -252,10 +279,10 @@ public final class ReFlashScreen extends Screen {
                 StudioTheme.icon(g,"record",x+21,y+h-104,StudioTheme.CYAN);
                 StudioTheme.label(g,font,"RECORD SMART",x+42,y+h-105,StudioTheme.TEXT);
                 StudioTheme.label(g,font,"RENDER LATER",x+42,y+h-88,StudioTheme.MUTED);
-                StudioTheme.label(g,font,"F7 OPEN    F8 CAPTURE",x+20,y+h-48,StudioTheme.SOFT);
+                StudioTheme.label(g,font,"MANAGER: " + ReFlashClient.managerKeyName(),x+20,y+h-48,StudioTheme.SOFT);
             }
         }
-        StudioTheme.label(g,font,"v0.9-VK / FABRIC 1.21.11",x+w-174,y+h-16,StudioTheme.SOFT);
+        StudioTheme.label(g,font,"v0.9.1 VK / FABRIC 1.21.11",x+w-174,y+h-16,StudioTheme.SOFT);
     }
     private void heading(GuiGraphics g,String title,String subtitle,int x,int y){
         StudioTheme.label(g,font,title,x+2,y+5,StudioTheme.TEXT);
@@ -397,22 +424,22 @@ public final class ReFlashScreen extends Screen {
     }
     private void drawSettings(GuiGraphics g){
         int x=layout.contentX(),y=layout.contentY(),w=layout.contentWidth(),h=layout.contentHeight();
-        heading(g,"Studio Settings","Local preferences for capture, notifications and export",x,y);
-        int base=y+(layout.ultraCompact()?22:52),rh=61;
-        String[] labels={"AUTO-RECORD ON WORLD JOIN","RECORDING NOTIFICATIONS","VULKAN EXPORT LIMITS"};
-        String[] details={"Start a replay recording after joining a world","Show status updates through Minecraft toasts","Momenton outputs at window size under Vulkan"};
-        int rows=layout.ultraCompact()?1:3;
-        for(int i=0;i<rows;i++){
-            int yy=base+i*rh;if(yy+56>y+h)break;
-            StudioTheme.softPanel(g,x,yy,w,56);
-            StudioTheme.icon(g,i==2?"export":i==1?"spark":"record",x+18,yy+19,i==2?StudioTheme.PURPLE:StudioTheme.CYAN);
-            StudioTheme.label(g,font,fit(labels[i],Math.max(25,w-150)),x+42,yy+14,StudioTheme.TEXT);
-            if(w>=320)StudioTheme.label(g,font,fit(details[i],Math.max(25,w-150)),x+42,yy+33,StudioTheme.MUTED);
+        heading(g,"Manager & Controls","One click or one custom key opens everything.",x,y);
+        int base=y+(layout.ultraCompact()?18:43);
+        int rh=layout.ultraCompact()?31:Math.min(61,Math.max(34,(h-55)/3));
+        String[] labels={"MANAGER KEY","AUTO-RECORD","NOTIFICATIONS"};
+        String[] details={"Current: " + ReFlashClient.managerKeyName(),
+                "Record automatically after joining a world","Show Minecraft recording and save notifications"};
+        for(int i=0;i<3;i++){
+            int yy=base+i*rh;if(yy+rh-2>y+h)break;
+            StudioTheme.softPanel(g,x,yy,w,rh-2);
+            if(!layout.ultraCompact())StudioTheme.icon(g,i==0?"settings":i==1?"record":"spark",x+17,yy+16,i==0?StudioTheme.PURPLE:StudioTheme.CYAN);
+            int textX=x+(layout.ultraCompact()?9:42);
+            StudioTheme.label(g,font,fit(labels[i],Math.max(25,w-165)),textX,yy+7,StudioTheme.TEXT);
+            if(rh>=55&&w>=340)StudioTheme.label(g,font,fit(details[i],Math.max(25,w-165)),textX,yy+29,StudioTheme.MUTED);
         }
-        if(base+rh*3+47<y+h){
-            StudioTheme.label(g,font,"SHORTCUTS",x+6,base+rh*3+19,StudioTheme.PURPLE);
-            StudioTheme.label(g,font,"F7  STUDIO      F8  RECORD      F6  BOOKMARK      F12  FPS",x+6,base+rh*3+38,StudioTheme.MUTED);
-            StudioTheme.label(g,font,"Shadow Rewind is not implemented.",x+6,base+rh*3+60,StudioTheme.SOFT);
+        if(base+rh*3+30<y+h){
+            StudioTheme.label(g,font,"CONTROLS -> KEY BINDS -> REFLASH",x+6,base+rh*3+10,StudioTheme.PURPLE);
         }
     }
     private void drawControl(GuiGraphics g,Control c){

@@ -26,6 +26,9 @@ public class VulkanContractTest {
     check(MomentonBridge.openReplay(client,file),"native replay opened");
     check(MomentonBridge.isInReplay() && ReplaySession.file.equals(file),"playback state");
     check(MomentonBridge.openNativeEditor(client) && EditSession.toggles==1,"native editor opened");
+    check(MomentonBridge.openReplayForEditing(client,file),"queued editor from selected replay");
+    MomentonBridge.onClientTick(client);
+    check(EditSession.toggles==2,"queued editor opens when replay is active");
     check(MomentonBridge.openNativeExport(client,null) && client.screen instanceof com.relapzz.momenton.ui.ExportScreen,"native export opens");
     check(VulkanSupport.isReplayFile(file),"native replay extension");
     check(!VulkanSupport.isReplayFile(dir.resolve("foo.zip")),"Flashback zip excluded");

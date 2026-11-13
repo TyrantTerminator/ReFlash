@@ -23,11 +23,15 @@ public final class ReFlashClient implements ClientModInitializer {
     private static final KeyMapping.Category CATEGORY = KeyMapping.Category.register(
             Identifier.fromNamespaceAndPath("reflash", "controls"));
     private static Preferences preferences;
+    private static KeyMapping managerBinding;
     private static final PerformanceSampler FPS_METER = new PerformanceSampler();
     private static int startDelayTicks = -1;
     private static final SystemToast.SystemToastId REFLASH_TOAST = new SystemToast.SystemToastId();
 
     public static Preferences preferences() { return preferences; }
+    public static String managerKeyName() {
+        return managerBinding == null ? "F7" : managerBinding.getTranslatedKeyMessage().getString();
+    }
     public static PerformanceSampler performanceSampler() { return FPS_METER; }
 
     /** Shared keyboard/UI FPS comparison action; no gameplay pixel capture. */
@@ -69,7 +73,7 @@ public final class ReFlashClient implements ClientModInitializer {
 
         ReFlashPauseMenu.install();
 
-        KeyMapping dashboard = KeyBindingHelper.registerKeyBinding(new KeyMapping(
+        managerBinding = KeyBindingHelper.registerKeyBinding(new KeyMapping(
                 "key.reflash.dashboard", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_F7, CATEGORY));
         KeyMapping recording = KeyBindingHelper.registerKeyBinding(new KeyMapping(
                 "key.reflash.record", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_F8, CATEGORY));
@@ -86,7 +90,8 @@ public final class ReFlashClient implements ClientModInitializer {
         });
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            while (dashboard.consumeClick()) {
+            MomentonBridge.onClientTick(client);
+            while (managerBinding.consumeClick()) {
                 client.setScreen(new ReFlashScreen(client.screen));
             }
             while (recording.consumeClick()) {

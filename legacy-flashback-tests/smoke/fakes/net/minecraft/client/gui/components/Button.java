@@ -9,6 +9,7 @@ public class Button {
   public Button(int x,int y,int w,int h,Consumer<Button> action){this.x=x;this.y=y;this.w=w;this.h=h;this.action=action;}
   public void click(){action.accept(this);}
   public void setAlpha(float alpha){}
+  public void setTooltip(Tooltip tooltip){}
   public int getX(){return x;}public int getY(){return y;}public int getWidth(){return w;}public int getHeight(){return h;}
   public boolean isHoveredOrFocused(){return false;}
   public static Builder builder(Component c, Consumer<Button> fn){return new Builder(fn);}

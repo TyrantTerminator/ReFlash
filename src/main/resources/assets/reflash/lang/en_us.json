@@ -1,7 +1,7 @@
 {
   "key.category.reflash.controls": "ReFlash Controls",
-  "key.reflash.dashboard": "Open ReFlash Dashboard",
-  "key.reflash.record": "Toggle Replay Recording",
-  "key.reflash.marker": "Save Replay Bookmark (F6)",
-  "key.reflash.benchmark": "Measure Recording FPS Impact"
+  "key.reflash.dashboard": "Open ReFlash Manager",
+  "key.reflash.record": "Start / Stop Replay Recording",
+  "key.reflash.marker": "Save Replay Bookmark",
+  "key.reflash.benchmark": "Compare Recording FPS"
 }

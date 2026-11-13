@@ -20,6 +20,26 @@ import java.util.Locale;
 public final class MomentonBridge {
     private MomentonBridge() { }
     private static final String BASE = "com.relapzz.momenton.";
+    private static int editQueueTicks;
+
+    /** Select -> Edit directly from Library, even when playback needs an async world transition. */
+    public static boolean openReplayForEditing(Minecraft client, Path replayFile) {
+        editQueueTicks = 0;
+        if (!openReplay(client, replayFile)) return false;
+        editQueueTicks = 600;
+        return true;
+    }
+
+    public static void onClientTick(Minecraft client) {
+        if (editQueueTicks <= 0) return;
+        if (isInReplay()) {
+            editQueueTicks = 0;
+            if (!openNativeEditor(client)) ReFlashClient.notifyPlayer("Open ReFlash and choose Editor to continue.");
+        } else if (--editQueueTicks == 0) {
+            ReFlashClient.notifyPlayer("Replay editor did not open. Try loading it from the library.");
+        }
+    }
+
 
     public static boolean backendPresent() {
         try { Class.forName(BASE + "record.Recorder", false, MomentonBridge.class.getClassLoader()); return true; }

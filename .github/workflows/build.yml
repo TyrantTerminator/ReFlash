@@ -19,13 +19,11 @@ jobs:
           java-version: '21'
       - name: Test Vulkan-safe ReFlash against offline API fakes
         run: bash vulkan-tests/test.sh
-        
       - name: Install Java 25 for Fabric Loom
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '25'
-
       - name: Install Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
@@ -33,14 +31,14 @@ jobs:
       - name: Build remapped Fabric JAR
         run: gradle --no-daemon clean build --stacktrace
       - name: Verify JAR metadata
-        run: python3 tools/verify_jar.py build/libs/reflash-0.9.0-vulkan-alpha.jar
+        run: python3 tools/verify_jar.py build/libs/reflash-0.9.1-vulkan-alpha.jar
       - name: SHA-256 checksum
-        run: sha256sum build/libs/reflash-0.9.0-vulkan-alpha.jar > build/libs/reflash-0.9.0-vulkan-alpha.jar.sha256
+        run: sha256sum build/libs/reflash-0.9.1-vulkan-alpha.jar > build/libs/reflash-0.9.1-vulkan-alpha.jar.sha256
       - name: Upload alpha JAR
         uses: actions/upload-artifact@v4
         with:
-          name: ReFlash-0.9.0-Vulkan-alpha-UNTESTED
+          name: ReFlash-0.9.1-Vulkan-alpha-UNTESTED
           path: |
-            build/libs/reflash-0.9.0-vulkan-alpha.jar
-            build/libs/reflash-0.9.0-vulkan-alpha.jar.sha256
+            build/libs/reflash-0.9.1-vulkan-alpha.jar
+            build/libs/reflash-0.9.1-vulkan-alpha.jar.sha256
           if-no-files-found: error

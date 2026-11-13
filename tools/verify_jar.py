@@ -3,14 +3,17 @@
 from pathlib import Path
 from zipfile import ZipFile, BadZipFile
 import json, sys
-VERSION = '0.9.0-vulkan-alpha'
+VERSION = '0.9.1-vulkan-alpha'
 REQUIRED = ('dev/reflash/client/ReFlashClient.class',
             'dev/reflash/client/StudioTheme.class',
             'dev/reflash/client/ReFlashPauseMenu.class',
             'dev/reflash/client/ReFlashScreen.class',
             'dev/reflash/client/MomentonBridge.class',
             'dev/reflash/core/VulkanSupport.class',
-            'assets/reflash/textures/gui/studio_landscape.png')
+            'assets/reflash/textures/gui/studio_landscape.png',
+            'assets/reflash/textures/gui/reflash_mark.png',
+            'assets/reflash/textures/gui/reflash_button.png',
+            'assets/reflash/icon.png')
 def verify(path):
   path=Path(path)
   assert path.is_file(), f'No remapped JAR at {path}'
