@@ -1,17 +1,17 @@
-## 0.9.2 Vulkan alpha
+# Changelog
 
-- Corrected thumbnail/logo texture sampling and title button placement.
-- Recording HUD top-left / top-right / off.
-- Direct Edit Latest and no fake library preview.
-- Start/stop FPS test feedback; configurable post-render resolution/FPS, max 4K240, with FFmpeg.
-- See RELEASE-0.9.2.md for limitations.
+## 0.10.0 — Quality & workflow build candidate
 
-# ReFlash v0.9.1 — Compact-access pass
+- Clip editing: playhead-based split, timeline click-to-seek, undo/redo, reset, non-destructive save and backup; selected replay remains explicit.
+- Recording: shared user-initiated control; no automatic on-join recording; verified saved-file status after stop; compact or standard recording HUD with opacity and position controls.
+- Audio: opt-in mic device check, Momenton microphone setting/device selection, independent Momenton F9 key unbind option, no implicit meeting audio capture.
+- Export: optional experimental custom native Momenton export bridge with saved cuts; presets, correct video selection, serial FFmpeg queue, cancel and status, up to 4K/240 output postprocessing.
+- UI: clear 'REPLAY VIEW' placeholder instead of fake preview imagery, Settings tabs, concise notifications, precise keybind and diagnostic controls.
+- QA: offline tests across 6 viewport sizes (741 interactive-button placements), native exporter simulation, recording-save tests, generated-fixture FFmpeg queue and post-process tests, source metadata checks.
+- Packaging: single JAR with pinned Momenton source/licensing per GPL; verify_jar checks new classes and version.
 
-- Added tiny 22×22 title and pause menu ReFlash launch buttons with embedded icon and tooltip.
-- Added transparent ReFlash brand logo/icon to mod metadata, Manager header, and buttons.
-- Added native keybinding editor access through Manager → Settings; all four binds remain configurable.
-- Rearranged Manager Home into immediate recording / recordings / editor entry points.
-- Added Library → Edit Selected with delayed open once a Momenton replay session is active.
-- Preserved Vulkan-safe approach (no OpenGL imports, no Flashback dependency).
-- Updated GitHub CI to Fabric Loom-compatible Java 25 / Gradle 9.7, targeting Java 21 bytecode.
+**Not implemented:** native offscreen high-resolution Vulkan frames, actual video-frame interpolation, Windows system audio loopback, Shadow Rewind ring buffer, fully embedded 3D preview, advanced camera keyframe system, complete cross-mod runtime compatibility proof.
+
+## 0.9.3 — Custom clips and bundled Momenton
+
+Initial cut-page, microphone configuration, custom presets, Momenton nested dependency. GitHub #6 built successfully; new v0.10 code requires its own build and launch verification.

@@ -1,21 +1,44 @@
-# ReFlash v0.9.3 — Vulkan-first bundled build candidate
+# ReFlash Studio — Vulkan alpha v0.10.0
 
-This is an **unverified** source release. Production build and in-game VulkanMod behavior must be tested before release.
+**Minecraft Java Edition 1.21.11 / Fabric / VulkanMod-oriented replay recording.**
 
-## Changes
+This is an **alpha build candidate**, not a guarantee of runtime compatibility. ReFlash provides a compact UI and editor controls for the separately GPL-licensed **Momenton 1.0.0 recording/playback engine**, distributed as a nested Fabric mod in a single JAR. It does not use Flashback's OpenGL-dependent renderer.
 
-- Manual recording only: ReFlash no longer starts capturing on world join. ReFlash F8 and the Studio record button call the same backend toggle. Note: Momenton's own F9 hotkey remains a separate action unless unbound in Minecraft controls.
-- Custom ReFlash clip page: choose a .momenton replay, trim start/end by seconds, split, delete clips, save the .momenton.json project. Preview opens real replay playback and Momenton's editor. Existing project files get one `.reflash-backup` copy on first save.
-- Settings: microphone toggle and JavaSound device cycling through Momenton's real configuration; these affect the next recording. Detect microphone track through replay metadata; no recording of Windows-wide audio.
-- Custom Export & Enhance page: choose target resolution/FPS presets; check FFmpeg availability, render at Vulkan window size with Momenton, then upscale/duplicate frames up to 3840×2160/240 FPS. These are **output format** settings, not native 4K scene quality or interpolated motion.
-- Bundled Momenton: Fabric JAR-in-JAR metadata and pinned 1.0.0 binary downloaded with SHA-256 verification during the GitHub build. One ReFlash JAR should meet the Momenton dependency after verification. Remove standalone Momenton before testing to avoid version duplication. Fabric API remains required.
+## What actually works in the source
 
-## Audio and privacy
+- 22×22 ReFlash button on title / pause menus and a remappable default **F7** Studio key.
+- Shared **F8** record/stop toggle and small configurable recording HUD. Starts recording **only when you request it**. Independent Momenton F9 remains active until manually unbound in **Settings → Keys**.
+- Recording status **Saving** until a new completed Momenton replay archive can be read; otherwise warns after timeout.
+- Local Replay Library, safe non-destructive project cuts: seek on timeline, trim, split at playhead, delete, undo/redo, and save project JSON compatible with Momenton.
+- Experimental **native offline render** bridge using your actual Vulkan framebuffer dimensions and user-selected 24–240 FPS. Requires in-game verification.
+- **FFmpeg-based MP4 post-processing** from selected videos with presets up to **3840×2160 240 FPS**. This scales original frames and changes nominal FPS using repeats; it **does not** produce native 4K replay frames or AI interpolation.
+- Serial export queue (up to 25 files), cancellation/status; explicit target-file choice, avoiding the wrong recording.
+- Separate Studio Settings tabs for Recording, Audio and Keys; configurable indicator size, opacity, corner, opt-in microphone testing, Momenton microphone controls, and privacy-minimized diagnostics.
 
-Momenton records Minecraft sound as replay-state audio to reproduce when exporting. It can capture an optional microphone WAV track via JavaSound, depending on available hardware and device selection. It does **not** capture Zoom/Teams/Discord/Windows output. Recording third-party calls should be explicitly enabled only when everyone involved knows and agrees.
+## Requirements
 
-FFmpeg is not included in the mod. Install FFmpeg separately or put `ffmpeg.exe` under `<game folder>/ffmpeg/bin`; ReFlash checks these paths.
+Minecraft Java **1.21.11**, compatible Fabric loader + Fabric API + compatible VulkanMod, and a game Java runtime matching Minecraft requirements. **Momenton is bundled inside this ReFlash JAR**—do not also install a standalone copy. Do not install Flashback in the same profile. FFmpeg is a separate executable needed for video rendering/post-processing, install from its official site and add it to your PATH or the Minecraft-profile `ffmpeg/bin` folder.
 
-## Licensing
+## Intended workflow
 
-Bundled Momenton and adapted ReplayMod components are GPL-3.0-only. Combined redistribution is subject to GPL-3.0. See THIRD_PARTY_NOTICES.md and included GPL source/license files. Original ReFlash-only source originated under MIT; its license notice remains included.
+1. Enter a world; use the tiny ReFlash button or **F7** to open Studio.
+2. Start/stop recording with **F8** or Home → Record. A small status badge indicates recording/saving.
+3. In Library select a completed recording. Editor edits the clip ranges with undo/redo and saves a separate `.momenton.json` project. **Preview Replay** uses Momenton's real playback world; there is currently no embedded native world viewport in Studio.
+4. Export selects a preset and attempts Momenton's native renderer at actual Vulkan window resolution, or selects completed MP4s for offline FFmpeg enhancement to a larger target resolution.
+5. Configure other bindings with **Settings → Keys → Change Keybinds**. Disable Momenton's F9 separately if duplicate record toggles are annoying.
+
+## Privacy and audio
+
+A new installation turns **microphone recording OFF** until explicitly enabled. Already existing Momenton microphone preferences remain unchanged. A short Mic Test reads the device temporarily and saves no audio. Minecraft game sounds may be regenerated by Momenton during replay export. **Windows desktop/meeting audio is not recorded**; no silent screen or system-audio capture is included. If you plan to record meetings, obtain the necessary permission from participants and use a separate opt-in audio recorder.
+
+## Performance expectations
+
+ReFlash does not encode gameplay frames while playing. Momenton records replay data, which still consumes CPU, storage and memory. No guaranteed FPS overhead, 4K native Vulkan output, reliable 240-FPS motion interpolation, or complete crash recovery is claimed.
+
+## Building and licensing
+
+GitHub Actions workflow `.github/workflows/build.yml` downloads pinned Momenton 1.0.0, checks its SHA-256, bundles its JAR, compiles/remaps via Fabric Loom, verifies the output JAR, and attaches upstream corresponding GPL source and notices. See `THIRD_PARTY_NOTICES.md` and `LICENSE`. The combined distributed artifact is GPL-3.0-only; ReFlash-origin source historically carried MIT terms. Include required source and attribution with any redistribution.
+
+## Verification
+
+Run `bash vulkan-tests/test.sh` using Java 21 to run offline Java/UI contract checks against **simulated Minecraft interfaces**, not a game launch. Run `bash vulkan-tests/test-video-integration.sh` with local FFmpeg to additionally test actual software video transcoding. See `VERIFICATION.md` for the honest results and remaining release gates.

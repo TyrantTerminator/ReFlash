@@ -3,7 +3,7 @@
 from pathlib import Path
 from zipfile import ZipFile, BadZipFile
 import json, sys, hashlib, io
-VERSION = '0.9.3-vulkan-alpha'
+VERSION = '0.10.0-vulkan-alpha'
 REQUIRED = ('dev/reflash/client/ReFlashClient.class',
             'dev/reflash/client/StudioTheme.class',
             'dev/reflash/client/ReFlashPauseMenu.class',
@@ -11,6 +11,12 @@ REQUIRED = ('dev/reflash/client/ReFlashClient.class',
             'dev/reflash/client/ReFlashRecordingHud.class',
             'dev/reflash/core/VideoPostProcessor.class',
             'dev/reflash/core/ReplayProject.class',
+            'dev/reflash/core/EditorTimeline.class',
+            'dev/reflash/core/RecordingSaveMonitor.class',
+            'dev/reflash/core/VideoExportLibrary.class',
+            'dev/reflash/core/MicrophoneProbe.class',
+            'dev/reflash/core/DiagnosticsReport.class',
+            'dev/reflash/client/NativeReplayExporter.class',
             'dev/reflash/core/FfmpegCheck.class',
             'dev/reflash/client/MomentonBridge.class',
             'dev/reflash/core/VulkanSupport.class',

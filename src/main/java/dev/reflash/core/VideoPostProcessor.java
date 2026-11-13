@@ -6,125 +6,129 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Offline video post-processing, not a native-resolution Vulkan renderer.
- * Rendering still happens through Momenton at the game-window size. This tool then
- * scales/pads that video and establishes a constant output FPS (duplicating frames
- * when needed). It cannot reconstruct detail or motion that wasn't captured.
+ * Optional OFFLINE video processing, never active during gameplay unless invoked by the user.
+ * It scales/pads saved video and sets a constant output FPS. It does not invent scene detail
+ * or interpolate missing animation. Frame duplication remains explicit in the UI.
  */
 public final class VideoPostProcessor {
-    private static final AtomicBoolean RUNNING = new AtomicBoolean();
-    private static final AtomicBoolean CANCELLED = new AtomicBoolean();
+    private static final AtomicBoolean RUNNING=new AtomicBoolean();
+    private static final AtomicBoolean CANCELLED=new AtomicBoolean();
     private static volatile Process active;
-    private static volatile String status = "Ready";
+    private static volatile String status="Ready";
     private static volatile Path lastOutput;
-    private VideoPostProcessor() { }
+    private static volatile int jobsDone,jobsTotal;
+    private VideoPostProcessor(){}
+    public static boolean running(){return RUNNING.get();}
+    public static String status(){return status;}
+    public static Path lastOutput(){return lastOutput;}
+    public static int jobsDone(){return jobsDone;}
+    public static int jobsTotal(){return jobsTotal;}
 
-    public static boolean running() { return RUNNING.get(); }
-    public static String status() { return status; }
-    public static Path lastOutput() { return lastOutput; }
-
-    public static Path latestExport(Path gameDir) throws IOException {
-        Path folder = gameDir.resolve("momenton").resolve("exports");
-        if (!Files.isDirectory(folder)) return null;
-        try (var files = Files.list(folder)) {
-            return files.filter(Files::isRegularFile)
-                    .filter(p -> { String name=p.getFileName().toString().toLowerCase(Locale.ROOT);
-                        return (name.endsWith(".mp4") || name.endsWith(".mkv") || name.endsWith(".mov")) &&
-                                !name.contains("momenton-video-") && !name.contains("-reflash-"); })
-                    .max(Comparator.comparingLong(p -> {
-                        try { return Files.getLastModifiedTime(p).toMillis(); }
-                        catch (IOException e) { return 0L; }
-                    })).orElse(null);
-        }
+    public static Path latestExport(Path gameDir)throws IOException{
+        try(var files=Files.list(VideoExportLibrary.folder(gameDir))){
+            return files.filter(Files::isRegularFile).filter(VideoExportLibrary::valid)
+                .filter(p->!p.getFileName().toString().toLowerCase(Locale.ROOT).contains("-reflash-"))
+                .max(Comparator.comparingLong(p->{try{return Files.getLastModifiedTime(p).toMillis();}
+                    catch(IOException ex){return 0;}})).orElse(null);
+        }catch(java.nio.file.NoSuchFileException ex){return null;}
     }
-
-    public static String filter(int width, int height, int fps) {
-        if (width < 640 || height < 360 || width > 3840 || height > 2160 ||
-                width%2 != 0 || height%2 != 0 || fps < 24 || fps > 240)
-            throw new IllegalArgumentException("Maximum 3840x2160 at 240 FPS");
+    public static String filter(int width,int height,int fps){
+        if(width<640||height<360||width>3840||height>2160||width%2!=0||height%2!=0||fps<24||fps>240)
+            throw new IllegalArgumentException("Output limited to even dimensions <=4K and 24-240 FPS");
         return "scale="+width+":"+height+":flags=lanczos:force_original_aspect_ratio=decrease,"+
-                "pad="+width+":"+height+":(ow-iw)/2:(oh-ih)/2,fps="+fps;
+            "pad="+width+":"+height+":(ow-iw)/2:(oh-ih)/2,fps="+fps;
     }
-
-    public static synchronized boolean startLatest(Path gameDir, Preferences preferences) {
-        if (!RUNNING.compareAndSet(false, true)) return false;
-        try {
-            CANCELLED.set(false);
-            Path input = latestExport(gameDir);
-            if (input == null) {
-                status = "No exported video yet. Render a replay in Momenton first.";
-                RUNNING.set(false);
-                return false;
+    public static synchronized boolean startLatest(Path gameDir,Preferences prefs){
+        try{return startSelected(gameDir,latestExport(gameDir),prefs);}
+        catch(IOException e){status="No video found: "+e.getMessage();return false;}
+    }
+    public static synchronized boolean startSelected(Path gameDir,Path selected,Preferences prefs){
+        return startBatch(gameDir,selected==null?List.of():List.of(selected),prefs);
+    }
+    /** Runs a limited batch serially; can be cancelled. No concurrent encoders on an older laptop. */
+    public static synchronized boolean startBatch(Path gameDir,List<Path> selected,Preferences prefs){
+        if(!RUNNING.compareAndSet(false,true))return false;
+        try{
+            if(selected==null||selected.isEmpty()||selected.size()>25){
+                status="Select 1-25 exported videos first";RUNNING.set(false);return false;
             }
-            String name = input.getFileName().toString().replaceFirst("(?i)\\.(mp4|mkv|mov)$", "");
-            Path output = input.resolveSibling(name+"-ReFlash-"+preferences.outputWidth()+"x"+
-                    preferences.outputHeight()+"-"+preferences.outputFps()+"fps.mp4");
-            if (Files.exists(output)) {
-                output = input.resolveSibling(name+"-ReFlash-"+System.currentTimeMillis()+".mp4");
+            List<Path> inputs=new ArrayList<>();
+            for(Path path:selected){
+                if(!VideoExportLibrary.allowed(gameDir,path)){
+                    status="Select a valid exported video (file missing or outside the exports folder)";RUNNING.set(false);return false;
+                }
+                if(!inputs.contains(path))inputs.add(path);
             }
-            final Path out = output;
-            final String vf = filter(preferences.outputWidth(), preferences.outputHeight(), preferences.outputFps());
-            status = "Enhancing latest export (software encoding)...";
-            Thread thread = new Thread(() -> transcode(input, out, vf), "ReFlash-offline-video-export");
-            thread.setDaemon(true);
-            thread.start();
-            return true;
-        } catch (IOException | IllegalArgumentException e) {
-            status = "Export setup failed: "+e.getMessage();
-            RUNNING.set(false);
-            return false;
+            final String vf=filter(prefs.outputWidth(),prefs.outputHeight(),prefs.outputFps());
+            final int width=prefs.outputWidth(),height=prefs.outputHeight(),fps=prefs.outputFps();
+            CANCELLED.set(false);jobsDone=0;jobsTotal=inputs.size();
+            status="Queued "+jobsTotal+" videos";
+            Thread thread=new Thread(()->processQueue(gameDir,inputs,vf,width,height,fps),"ReFlash-video-export-queue");
+            thread.setDaemon(true);thread.start();return true;
+        }catch(IOException|IllegalArgumentException e){
+            status="Video batch setup failed: "+e.getMessage();RUNNING.set(false);return false;
         }
     }
-    private static void transcode(Path input, Path out, String vf) {
-        Process process = null;
-        try {
-            var cmd = new ProcessBuilder(FfmpegCheck.candidate(input.getParent().getParent().getParent()), "-hide_banner", "-nostdin", "-y", "-i", input.toString(),
-                    "-vf", vf, "-fps_mode", "cfr", "-c:v", "libx264", "-preset", "veryfast",
-                    "-crf", "21", "-threads", "2", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "160k",
-                    "-movflags", "+faststart", out.toString());
-            process = cmd.redirectErrorStream(true).start();
-            active = process;
-            String lastError = "Unknown error";
-            try (var reader = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    if (line.startsWith("frame=") || line.contains("time=")) {
-                        int index = line.indexOf("time=");
-                        if(index>=0)status="Rendering video  "+line.substring(index,Math.min(line.length(), index+18)).trim();
-                    } else if (line.contains("Error") || line.contains("error") || line.contains("not found")) {
-                        lastError = line.length()>150?line.substring(0,150):line;
+    private static void processQueue(Path gameDir,List<Path> files,String vf,int width,int height,int fps){
+        try{
+            for(int i=0;i<files.size();i++){
+                if(CANCELLED.get())break;
+                Path input=files.get(i);
+                String name=input.getFileName().toString().replaceFirst("(?i)\\.(mp4|mkv|mov)$","");
+                String stem=name+"-ReFlash-"+width+"x"+height+"-"+fps+"fps";
+                Path out=input.resolveSibling(stem+".mp4");
+                for(int j=1;Files.exists(out)&&j<=999;j++)out=input.resolveSibling(stem+"-"+j+".mp4");
+                if(Files.exists(out)){status="Too many existing exports of "+name;break;}
+                status="Video "+(i+1)+"/"+files.size()+" — "+input.getFileName();
+                if(!transcode(gameDir,input,out,vf,i+1,files.size()))break;
+                jobsDone++;
+            }
+            if(CANCELLED.get())status="Export queue cancelled";
+            else if(jobsDone==files.size())status="Completed "+jobsDone+" video(s). Last: "+lastOutput.getFileName();
+        }finally{active=null;RUNNING.set(false);}
+    }
+    private static boolean transcode(Path gameDir,Path input,Path out,String vf,int index,int count){
+        Process process=null;
+        try{
+            // ProcessBuilder arguments are a list: paths are never passed through cmd.exe or a shell.
+            var builder=new ProcessBuilder(FfmpegCheck.candidate(gameDir),"-hide_banner","-nostdin","-y","-i",input.toString(),
+                "-vf",vf,"-fps_mode","cfr","-c:v","libx264","-preset","veryfast","-crf","21",
+                "-threads","2","-pix_fmt","yuv420p","-c:a","aac","-b:a","160k", "-movflags","+faststart",out.toString());
+            process=builder.redirectErrorStream(true).start();active=process;
+            String error="No encoder details";
+            try(var reader=new BufferedReader(new InputStreamReader(process.getInputStream(),StandardCharsets.UTF_8))){
+                String line;while((line=reader.readLine())!=null){
+                    if(line.contains("time=")){
+                        int n=line.indexOf("time=");
+                        status="Video "+index+"/"+count+"  "+line.substring(n,Math.min(line.length(),n+19)).trim();
+                    }else if(line.contains("Error")||line.contains("error")||line.contains("not found")){
+                        error=line.length()>175?line.substring(0,175):line;
                     }
                 }
             }
             int code=process.waitFor();
-            if(CANCELLED.get()) { status="Export cancelled"; }
-            else if(code==0 && Files.isRegularFile(out) && Files.size(out)>0){
-                lastOutput=out;
-                status="Video ready: "+out.getFileName();
-            } else {
-                status="FFmpeg failed (code "+code+"): "+lastError;
+            if(CANCELLED.get()){
+                Files.deleteIfExists(out);return false;
             }
-        } catch (IOException e) {
-            status="Cannot run FFmpeg; install FFmpeg or add it to PATH. "+e.getMessage();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            status="Export cancelled";
-        } finally {
-            active=null;
-            RUNNING.set(false);
-        }
+            if(code==0 && Files.isRegularFile(out) && Files.size(out)>0){lastOutput=out;return true;}
+            status="FFmpeg failed (code "+code+"): "+error;
+            Files.deleteIfExists(out);return false;
+        }catch(IOException e){status="Cannot run FFmpeg: "+e.getMessage();return false;}
+        catch(InterruptedException e){Thread.currentThread().interrupt();status="Export interrupted";return false;}
+        finally{active=null;}
     }
-    public static void cancel() {
-        Process p=active;
-        if(p!=null && RUNNING.get()) {
+    public static void cancel(){
+        if(RUNNING.get()){
             CANCELLED.set(true);
-            p.destroyForcibly();
-            status="Cancelling export...";
+            Process current=active;if(current!=null)current.destroyForcibly();
+            status="Cancelling export queue...";
         }
     }
 }

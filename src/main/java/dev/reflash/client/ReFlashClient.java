@@ -3,6 +3,7 @@ package dev.reflash.client;
 import com.mojang.blaze3d.platform.InputConstants;
 import dev.reflash.core.Preferences;
 import dev.reflash.core.PerformanceSampler;
+import dev.reflash.core.RecordingSaveMonitor;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
@@ -26,11 +27,13 @@ public final class ReFlashClient implements ClientModInitializer {
     private static Preferences preferences;
     private static KeyMapping managerBinding;
     private static final PerformanceSampler FPS_METER = new PerformanceSampler();
-    private static int startDelayTicks = -1;
+    private static RecordingSaveMonitor SAVE_MONITOR;
+    private static int saveCheckTicks;
     private static boolean previousRecording;
     private static boolean recordingCached;
     private static int recordingTicksCached;
     public static boolean cachedRecording() { return recordingCached; }
+    public static RecordingSaveMonitor.State saveState() {return SAVE_MONITOR==null?RecordingSaveMonitor.State.IDLE:SAVE_MONITOR.state();}
     public static int cachedRecordingTicks() { return recordingTicksCached; }
 
 
@@ -39,6 +42,20 @@ public final class ReFlashClient implements ClientModInitializer {
         return managerBinding == null ? "F7" : managerBinding.getTranslatedKeyMessage().getString();
     }
     public static PerformanceSampler performanceSampler() { return FPS_METER; }
+    /** Momenton F9 is a SECOND recorder hotkey. Leave it unchanged until the user opts out. */
+    public static String momentonRecordKey(){
+        KeyMapping key=KeyMapping.get("key.momenton.toggle_recording");
+        return key==null?"Unavailable":key.isUnbound()?"Unbound":key.getTranslatedKeyMessage().getString();
+    }
+    public static boolean unbindMomentonRecordingKey(){
+        KeyMapping key=KeyMapping.get("key.momenton.toggle_recording");
+        if(key==null)return false;
+        key.setKey(InputConstants.UNKNOWN);
+        KeyMapping.resetMapping();
+        Minecraft.getInstance().options.save();
+        notifyPlayer("Momenton record key unbound. Use your ReFlash recording key instead.");
+        return true;
+    }
 
     /** The only ReFlash-controlled recording action: hotkey and Manager use this same path. */
     public static boolean toggleRecording(Minecraft client) {
@@ -46,6 +63,11 @@ public final class ReFlashClient implements ClientModInitializer {
         if (ok) {
             recordingCached = MomentonBridge.isRecording();
             recordingTicksCached = recordingCached ? MomentonBridge.recordingTicks() : 0;
+            if(SAVE_MONITOR!=null){
+                if(recordingCached){SAVE_MONITOR.clear();SAVE_MONITOR.arm();}
+                else SAVE_MONITOR.begin();
+            }
+            previousRecording=recordingCached;
         }
         return ok;
     }
@@ -89,6 +111,11 @@ public final class ReFlashClient implements ClientModInitializer {
 
         // Manual recording only. Discard any auto-record setting saved by older builds.
         if (preferences.autoRecord()) { preferences.setAutoRecord(false); savePreferences(); }
+        // Consent-first default for brand-new installations. Existing mic preferences remain untouched.
+        if(!java.nio.file.Files.isRegularFile(FabricLoader.getInstance().getConfigDir().resolve("momenton.json"))){
+            MomentonBridge.setMicEnabled(false);
+        }
+        SAVE_MONITOR=new RecordingSaveMonitor(MomentonBridge.replayFolder(FabricLoader.getInstance().getGameDir()));
         ReFlashPauseMenu.install();
         HudElementRegistry.addLast(Identifier.fromNamespaceAndPath("reflash", "recording_indicator"),
                 (graphics, counter) -> ReFlashRecordingHud.render(graphics));
@@ -103,16 +130,27 @@ public final class ReFlashClient implements ClientModInitializer {
                 "key.reflash.benchmark", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_F12, CATEGORY));
 
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
-            startDelayTicks = -1;
+            // Never start automatically; recording is always an explicit action.
         });
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
-            startDelayTicks = -1;
+            // Momenton owns the shutdown writer; the monitor only reports when file appears.
         });
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             MomentonBridge.onClientTick(client);
             recordingCached = MomentonBridge.isRecording();
             recordingTicksCached = recordingCached ? MomentonBridge.recordingTicks() : 0;
+            if(SAVE_MONITOR!=null){
+                if(recordingCached&&!previousRecording){SAVE_MONITOR.clear();SAVE_MONITOR.arm();}
+                if(!recordingCached&&previousRecording){SAVE_MONITOR.begin();notifyPlayer("Replay stopped; waiting for save confirmation");}
+                previousRecording=recordingCached;
+                if(SAVE_MONITOR.state()==RecordingSaveMonitor.State.SAVING && ++saveCheckTicks>=20){
+                    saveCheckTicks=0;
+                    var state=SAVE_MONITOR.check();
+                    if(state==RecordingSaveMonitor.State.SAVED)notifyPlayer("Replay saved: "+SAVE_MONITOR.lastFile());
+                    if(state==RecordingSaveMonitor.State.UNCONFIRMED)notifyPlayer("Save not confirmed. Inspect Momenton replays and latest.log");
+                }
+            }
             while (managerBinding.consumeClick()) {
                 client.setScreen(new ReFlashScreen(client.screen));
             }

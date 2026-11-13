@@ -19,6 +19,11 @@ public class VulkanClientContractTest {
     ReFlashClient.toggleBenchmark();
     if(ReFlashClient.performanceSampler().active())throw new AssertionError("F12 sampling did not stop");
     if(!ReFlashClient.managerKeyName().equals("F7"))throw new AssertionError("Manager default key not registered");
+    new net.minecraft.client.KeyMapping("key.momenton.toggle_recording",com.mojang.blaze3d.platform.InputConstants.Type.KEYSYM,298,
+       net.minecraft.client.KeyMapping.Category.register(net.minecraft.resources.Identifier.fromNamespaceAndPath("momenton","test")));
+    if(!ReFlashClient.momentonRecordKey().equals("F9"))throw new AssertionError("Momenton F9 detection");
+    if(!ReFlashClient.unbindMomentonRecordingKey()||!ReFlashClient.momentonRecordKey().equals("Unbound"))throw new AssertionError("Unbinding F9 failed");
+    if(!game.options.saved)throw new AssertionError("Unbinding not persisted");
     for(var screen:new net.minecraft.client.gui.screens.Screen[]{new TitleScreen(),new PauseScreen()}){
       ScreenEvents.AFTER_INIT.fire(game,screen,800,450);
       if(screen.widgets.size()!=1)throw new AssertionError("Expected one tiny button on "+screen.getClass());
