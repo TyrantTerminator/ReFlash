@@ -15,7 +15,8 @@ javac --release 21 -d build/vulkan-contract \
   $fakefiles $clientfakefiles \
   $(find vulkan-tests/fakes -name '*.java') \
   $(find src/main/java -name '*.java') \
-  vulkan-tests/VulkanContractTest.java vulkan-tests/VulkanClientContractTest.java vulkan-tests/VulkanVisualContractTest.java
+  vulkan-tests/VulkanContractTest.java vulkan-tests/VulkanClientContractTest.java vulkan-tests/VulkanVisualContractTest.java vulkan-tests/ReplayProjectTest.java
+java -Djava.awt.headless=true -cp build/vulkan-contract ReplayProjectTest
 java -Djava.awt.headless=true -cp build/vulkan-contract VulkanContractTest
 java -Djava.awt.headless=true -cp build/vulkan-contract VulkanClientContractTest
 java -Djava.awt.headless=true -cp build/vulkan-contract dev.reflash.client.VulkanVisualContractTest
@@ -26,5 +27,6 @@ python3 - <<'PY'
 import json
 m=json.load(open('src/main/resources/fabric.mod.json'))
 assert 'flashback' not in m['depends'] and 'momenton' in m['depends']
+assert any(j['file']=='META-INF/jars/momenton-1.0.0.jar' for j in m['jars'])
 print('PASS: Vulkan metadata excludes Flashback and requires Momenton')
 PY

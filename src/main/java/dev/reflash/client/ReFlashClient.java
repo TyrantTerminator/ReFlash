@@ -27,6 +27,7 @@ public final class ReFlashClient implements ClientModInitializer {
     private static KeyMapping managerBinding;
     private static final PerformanceSampler FPS_METER = new PerformanceSampler();
     private static int startDelayTicks = -1;
+    private static boolean previousRecording;
     private static boolean recordingCached;
     private static int recordingTicksCached;
     public static boolean cachedRecording() { return recordingCached; }
@@ -38,6 +39,16 @@ public final class ReFlashClient implements ClientModInitializer {
         return managerBinding == null ? "F7" : managerBinding.getTranslatedKeyMessage().getString();
     }
     public static PerformanceSampler performanceSampler() { return FPS_METER; }
+
+    /** The only ReFlash-controlled recording action: hotkey and Manager use this same path. */
+    public static boolean toggleRecording(Minecraft client) {
+        boolean ok = MomentonBridge.toggleRecording(client);
+        if (ok) {
+            recordingCached = MomentonBridge.isRecording();
+            recordingTicksCached = recordingCached ? MomentonBridge.recordingTicks() : 0;
+        }
+        return ok;
+    }
 
     /** Shared keyboard/UI FPS comparison action; no gameplay pixel capture. */
     public static void toggleBenchmark() {
@@ -76,6 +87,8 @@ public final class ReFlashClient implements ClientModInitializer {
         try { preferences.load(); }
         catch (IOException e) { LOGGER.warning("Could not read ReFlash settings: " + e); }
 
+        // Manual recording only. Discard any auto-record setting saved by older builds.
+        if (preferences.autoRecord()) { preferences.setAutoRecord(false); savePreferences(); }
         ReFlashPauseMenu.install();
         HudElementRegistry.addLast(Identifier.fromNamespaceAndPath("reflash", "recording_indicator"),
                 (graphics, counter) -> ReFlashRecordingHud.render(graphics));
@@ -90,7 +103,7 @@ public final class ReFlashClient implements ClientModInitializer {
                 "key.reflash.benchmark", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_F12, CATEGORY));
 
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
-            startDelayTicks = preferences.autoRecord() ? 50 : -1;
+            startDelayTicks = -1;
         });
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
             startDelayTicks = -1;
@@ -104,7 +117,7 @@ public final class ReFlashClient implements ClientModInitializer {
                 client.setScreen(new ReFlashScreen(client.screen));
             }
             while (recording.consumeClick()) {
-                MomentonBridge.toggleRecording(client);
+                toggleRecording(client);
             }
             while (marker.consumeClick()) {
                 MomentonBridge.markHighlight(client);
@@ -113,16 +126,7 @@ public final class ReFlashClient implements ClientModInitializer {
                 toggleBenchmark();
             }
             if (FPS_METER.active() && client.screen == null) FPS_METER.tick(client.getFps(), MomentonBridge.isRecording());
-            if (startDelayTicks > 0) {
-                startDelayTicks--;
-                if (startDelayTicks == 0) {
-                    startDelayTicks = -1;
-                    if (client.player != null && client.level != null
-                            && !MomentonBridge.isInReplay() && !MomentonBridge.isRecording()) {
-                        MomentonBridge.toggleRecording(client);
-                    }
-                }
-            }
+
         });
         LOGGER.info("ReFlash Vulkan add-on: records using Momenton, not realtime screen/video encoding");
     }

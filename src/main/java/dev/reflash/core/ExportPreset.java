@@ -7,11 +7,17 @@ import java.util.Locale;
  * current window size. Selecting these does NOT configure its export job.
  */
 public enum ExportPreset {
+    HD30("HD30", "1080P / 30", 1920, 1080, 30),
+    SD60("SD60", "720P / 60", 1280, 720, 60),
     HD60("HD60", "1080P / 60", 1920, 1080, 60),
     HD120("HD120", "1080P / 120", 1920, 1080, 120),
+    HD240("HD240", "1080P / 240", 1920, 1080, 240),
     QHD60("QHD60", "1440P / 60", 2560, 1440, 60),
     QHD120("QHD120", "1440P / 120", 2560, 1440, 120),
-    UHD60("UHD60", "4K / 60", 3840, 2160, 60);
+    QHD240("QHD240", "1440P / 240", 2560, 1440, 240),
+    UHD60("UHD60", "4K / 60", 3840, 2160, 60),
+    UHD120("UHD120", "4K / 120", 3840, 2160, 120),
+    UHD240("UHD240", "4K / 240", 3840, 2160, 240);
 
     private final String id;
     private final String label;

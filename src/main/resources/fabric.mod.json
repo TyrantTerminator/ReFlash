@@ -3,11 +3,11 @@
   "id": "reflash",
   "version": "${version}",
   "name": "ReFlash",
-  "description": "Compact VulkanMod-friendly replay manager and UI; requires Momenton 1.0.0.",
+  "description": "Vulkan-friendly ReFlash replay manager, custom cut UI and embedded Momenton recorder.",
   "authors": [
     "ReFlash Project"
   ],
-  "license": "MIT",
+  "license": "GPL-3.0-only",
   "environment": "client",
   "entrypoints": {
     "client": [
@@ -24,5 +24,10 @@
   "breaks": {
     "flashback": "*"
   },
-  "icon": "assets/reflash/icon.png"
+  "icon": "assets/reflash/icon.png",
+  "jars": [
+    {
+      "file": "META-INF/jars/momenton-1.0.0.jar"
+    }
+  ]
 }

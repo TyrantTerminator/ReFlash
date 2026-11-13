@@ -156,6 +156,46 @@ public final class MomentonBridge {
         } catch (ReflectiveOperationException | LinkageError | RuntimeException ex) { return false; }
     }
 
+    /** Momenton's actual microphone preference. Changes take effect at the next recording. */
+    public static boolean micEnabled() {
+        try {
+            Object cfg = call("config.MomentonConfig", "get", new Class<?>[0]);
+            return cfg.getClass().getField("micEnabled").getBoolean(cfg);
+        } catch (ReflectiveOperationException | LinkageError | RuntimeException ex) { return false; }
+    }
+
+    public static boolean setMicEnabled(boolean enabled) {
+        try {
+            Object cfg = call("config.MomentonConfig", "get", new Class<?>[0]);
+            cfg.getClass().getField("micEnabled").setBoolean(cfg, enabled);
+            cfg.getClass().getMethod("save").invoke(cfg);
+            ReFlashClient.notifyPlayer(enabled ? "Microphone enabled for NEXT recording" : "Microphone disabled for NEXT recording");
+            return true;
+        } catch (ReflectiveOperationException | LinkageError | RuntimeException ex) { return false; }
+    }
+
+    public static String micDevice() {
+        try {
+            Object cfg = call("config.MomentonConfig", "get", new Class<?>[0]);
+            String value = (String) cfg.getClass().getField("micDevice").get(cfg);
+            return value == null || value.isBlank() ? "System default" : value;
+        } catch (ReflectiveOperationException | LinkageError | RuntimeException ex) { return "Unavailable"; }
+    }
+
+    @SuppressWarnings("unchecked")
+    public static boolean cycleMicDevice() {
+        try {
+            Object cfg = call("config.MomentonConfig", "get", new Class<?>[0]);
+            var devices = (java.util.List<String>)call("audio.MicRecorder", "devices", new Class<?>[0]);
+            var options = new java.util.ArrayList<String>(); options.add(""); options.addAll(devices);
+            String current = (String)cfg.getClass().getField("micDevice").get(cfg);
+            int next = (options.indexOf(current) + 1) % options.size();
+            cfg.getClass().getField("micDevice").set(cfg, options.get(next));
+            cfg.getClass().getMethod("save").invoke(cfg);
+            return true;
+        } catch (ReflectiveOperationException | LinkageError | RuntimeException ex) { return false; }
+    }
+
     public static Path replayFolder(Path gameDir) { return dev.reflash.core.VulkanSupport.replayFolder(gameDir); }
 
     private static boolean validReplay(Path p) {

@@ -83,7 +83,7 @@ public final class VideoPostProcessor {
     private static void transcode(Path input, Path out, String vf) {
         Process process = null;
         try {
-            var cmd = new ProcessBuilder("ffmpeg", "-hide_banner", "-nostdin", "-y", "-i", input.toString(),
+            var cmd = new ProcessBuilder(FfmpegCheck.candidate(input.getParent().getParent().getParent()), "-hide_banner", "-nostdin", "-y", "-i", input.toString(),
                     "-vf", vf, "-fps_mode", "cfr", "-c:v", "libx264", "-preset", "veryfast",
                     "-crf", "21", "-threads", "2", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "160k",
                     "-movflags", "+faststart", out.toString());
