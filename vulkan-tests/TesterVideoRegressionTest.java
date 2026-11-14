@@ -33,11 +33,12 @@ public final class TesterVideoRegressionTest {
         Method select=ReFlashScreen.class.getDeclaredMethod("selectPage",pageClass);select.setAccessible(true);
         Field controls=ReFlashScreen.class.getDeclaredField("controls");controls.setAccessible(true);
         try {
-            // On the title screen the Start Recording control is visible but disabled.
+            // Screen Video can start in menus; Replay Data still requires a world.
             mc.level=null;mc.player=null;
             var welcome=new ReFlashScreen(null);welcome.width=1120;welcome.height=630;welcome.init();
             Button record=find((List<?>)controls.get(welcome),"Start Recording");
-            if(record==null || record.active)throw new AssertionError("Main menu must not pretend recording is ready");
+            boolean expected=ReFlashClient.preferences().recordingMode()==dev.reflash.core.Preferences.RecordingMode.SCREEN_VIDEO;
+            if(record==null || record.active!=expected)throw new AssertionError("Incorrect start button readiness for capture mode");
             mc.level=oldLevel;mc.player=oldPlayer;
             var library=new ReFlashScreen(null);library.width=1120;library.height=630;library.init();
             select.invoke(library,Enum.valueOf(pageClass,"LIBRARY"));

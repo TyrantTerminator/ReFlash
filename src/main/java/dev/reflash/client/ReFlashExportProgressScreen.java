@@ -51,6 +51,10 @@ public final class ReFlashExportProgressScreen extends Screen {
         } else returnToStudio();
     }
     private void returnToStudio() { minecraft.setScreen(parent==null?new ReFlashScreen(null):parent); }
+    private void openVideoLibrary(){
+        if(phase==Phase.FINISHING){detail="Finish rendering before opening videos";return;}
+        minecraft.setScreen(ReFlashScreen.videos(parent));
+    }
     private void openFolder() {
         try {
             Path folder=VideoExportLibrary.folder(FabricLoader.getInstance().getGameDir());
@@ -65,7 +69,7 @@ public final class ReFlashExportProgressScreen extends Screen {
         int bw=Math.max(94,(w-42)/2);
         mainButton=addRenderableWidget(Button.builder(Component.literal("Back to ReFlash"),b->cancel())
             .bounds(cx-bw-4,y,bw,26).build());
-        folderButton=addRenderableWidget(Button.builder(Component.literal("Open Videos"),b->openFolder())
+        folderButton=addRenderableWidget(Button.builder(Component.literal("Open Videos"),b->openVideoLibrary())
             .bounds(cx+4,y,bw,26).build());
         mainButton.setAlpha(0f);
         folderButton.setAlpha(0f);

@@ -1,11 +1,11 @@
 @echo off
 setlocal EnableExtensions
 cd /d "%~dp0"
-title ReFlash v0.11.0 - Publish approved standalone source and build JAR
+title ReFlash v0.11.4 - Publish approved standalone source and build JAR
 set "ACTIONS=https://github.com/TyrantTerminator/ReFlash/actions"
 echo.
 echo  =============================================================
-echo   ReFlash 0.11.0  ^|  Approved UI + standalone recording engine
+echo   ReFlash 0.11.4  ^|  Approved UI + standalone recording engine
  echo  =============================================================
 echo.
 echo [ReFlash] This publishes the approved source. GitHub Actions builds the mod.
@@ -53,7 +53,7 @@ git -C "%TARGET%" add -A
 if errorlevel 1 goto :failure
 git -C "%TARGET%" diff --cached --quiet
 if not errorlevel 1 goto :nochange
-git -C "%TARGET%" -c user.name=TyrantTerminator -c user.email=TyrantTerminator@users.noreply.github.com commit -m "ReFlash v0.11: approved standalone UI, engine and CI verification"
+git -C "%TARGET%" -c user.name=TyrantTerminator -c user.email=TyrantTerminator@users.noreply.github.com commit -m "ReFlash v0.11.4: recording-first UX and audio export controls"
 if errorlevel 1 goto :failure
 :nochange
 echo [4/4] Pushing to GitHub (browser login may appear) ...

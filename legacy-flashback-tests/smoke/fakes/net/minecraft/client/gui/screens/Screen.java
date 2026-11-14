@@ -12,7 +12,7 @@ public class Screen {
   public final List<Button> widgets=new ArrayList<>();
   protected Screen(Component c){}
   protected void init(){}
-  protected <T extends Button>T addRenderableWidget(T button){ widgets.add(button); return button; }
+  protected <T>T addRenderableWidget(T button){ if(button instanceof Button b)widgets.add(b); return button; }
   protected void rebuildWidgets(){widgets.clear();init();}
   public void render(GuiGraphics g,int mx,int my,float t){}
   public void tick(){}

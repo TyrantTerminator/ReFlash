@@ -2,6 +2,7 @@ package dev.reflash.client;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import dev.reflash.core.Preferences;
+import dev.reflash.core.ScreenCaptureRecorder;
 import dev.reflash.core.PerformanceSampler;
 import dev.reflash.core.RecordingSaveMonitor;
 import dev.reflash.core.RecordingSessionDiagnostics;
@@ -55,6 +56,20 @@ public final class ReFlashClient implements ClientModInitializer {
 
     /** The only ReFlash-controlled recording action: hotkey and Manager use this same path. */
     public static boolean toggleRecording(Minecraft client) {
+        // Always stop the active source, even if settings changed in the meantime.
+        if(ScreenCaptureRecorder.isRecording()){
+            boolean stopped=ScreenCaptureRecorder.stop();
+            if(stopped)notifyPlayer("Finishing screen video in ReFlash/exports...");
+            return stopped;
+        }
+        if(!ReFlashReplayBridge.isRecording() &&
+                preferences.recordingMode()==Preferences.RecordingMode.SCREEN_VIDEO){
+            boolean started=ScreenCaptureRecorder.start(FabricLoader.getInstance().getGameDir(),preferences);
+            if(started)notifyPlayer("Screen video recording started. Press F8 to stop.");
+            else notifyPlayer(ScreenCaptureRecorder.status());
+            recordingCached=started;
+            return started;
+        }
         boolean wasRecording=ReFlashReplayBridge.isRecording();
         // The engine finalises replay ZIPs asynchronously; a new take must not
         // begin while the previous output is still being written.
@@ -167,22 +182,24 @@ public final class ReFlashClient implements ClientModInitializer {
             ReFlashReplayBridge.onClientTick(client);
             // ReFlash-owned exports return to ReFlash-styled progress/error pages.
             NativeReplayExporter.routeExportScreen(client);
-            recordingCached = ReFlashReplayBridge.isRecording();
-            recordingTicksCached = recordingCached ? ReFlashReplayBridge.recordingTicks() : 0;
-            if(recordingCached)lastCapturedTicks=recordingTicksCached;
+            boolean replayRecording=ReFlashReplayBridge.isRecording();
+            recordingCached = replayRecording || ScreenCaptureRecorder.isRecording();
+            recordingTicksCached = replayRecording ? ReFlashReplayBridge.recordingTicks()
+                    : ScreenCaptureRecorder.recordingTicksApprox();
+            if(replayRecording)lastCapturedTicks=recordingTicksCached;
             if(SAVE_MONITOR!=null){
-                if(recordingCached&&!previousRecording){
+                if(replayRecording&&!previousRecording){
                     if(SESSION_DIAGNOSTICS!=null)SESSION_DIAGNOSTICS.started();
                     SAVE_MONITOR.clear();SAVE_MONITOR.arm();
                     recordingStartedNanos=System.nanoTime();lastCapturedTicks=recordingTicksCached;
                 }
-                if(!recordingCached&&previousRecording){
+                if(!replayRecording&&previousRecording){
                     if(SESSION_DIAGNOSTICS!=null)SESSION_DIAGNOSTICS.stopped(lastCapturedTicks,false,client.level==null || client.player==null);
                     SAVE_MONITOR.expectTicks(lastCapturedTicks);
                     SAVE_MONITOR.begin();warnAboutPausedWorld(lastCapturedTicks);
                     notifyPlayer("Replay stopped; waiting for save confirmation");
                 }
-                previousRecording=recordingCached;
+                previousRecording=replayRecording;
                 if(SAVE_MONITOR.state()==RecordingSaveMonitor.State.SAVING && ++saveCheckTicks>=20){
                     saveCheckTicks=0;
                     var state=SAVE_MONITOR.check();
@@ -212,6 +229,6 @@ public final class ReFlashClient implements ClientModInitializer {
             if (FPS_METER.active() && client.screen == null) FPS_METER.tick(client.getFps(), ReFlashReplayBridge.isRecording());
 
         });
-        LOGGER.info("ReFlash Vulkan add-on: records using its integrated engine, not realtime screen/video encoding");
+        LOGGER.info("ReFlash: optional Windows desktop video (FFmpeg); replay mode stays integrated/Vulkan-friendly");
     }
 }

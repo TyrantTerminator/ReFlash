@@ -38,7 +38,7 @@ jobs:
             -o build/upstream/momenton-1.0.0.jar
           echo '12f11462bed41428fed8f5f9d48a335f4af6df6302262acdade68e1d58423d75  build/upstream/momenton-1.0.0.jar' | sha256sum --check
       - name: Integrate replay engine inside single ReFlash mod
-        run: python3 tools/merge_standalone_engine.py build/libs/reflash-0.11.2-vulkan-alpha.jar build/upstream/momenton-1.0.0.jar
+        run: python3 tools/merge_standalone_engine.py build/libs/reflash-0.11.4-vulkan-alpha.jar build/upstream/momenton-1.0.0.jar
       - name: Download Momenton corresponding source for GPL redistribution
         run: |
           mkdir -p third-party-sources
@@ -46,18 +46,18 @@ jobs:
             https://github.com/Relapzzz/momenton/archive/refs/tags/v1.0.0.zip \
             -o third-party-sources/Momenton-1.0.0-source.zip
       - name: Verify integrated standalone engine
-        run: python3 tools/check_standalone_engine.py build/libs/reflash-0.11.2-vulkan-alpha.jar
+        run: python3 tools/check_standalone_engine.py build/libs/reflash-0.11.4-vulkan-alpha.jar
       - name: Verify JAR metadata
-        run: python3 tools/verify_jar.py build/libs/reflash-0.11.2-vulkan-alpha.jar
+        run: python3 tools/verify_jar.py build/libs/reflash-0.11.4-vulkan-alpha.jar
       - name: SHA-256 checksum
-        run: sha256sum build/libs/reflash-0.11.2-vulkan-alpha.jar > build/libs/reflash-0.11.2-vulkan-alpha.jar.sha256
+        run: sha256sum build/libs/reflash-0.11.4-vulkan-alpha.jar > build/libs/reflash-0.11.4-vulkan-alpha.jar.sha256
       - name: Upload alpha JAR
         uses: actions/upload-artifact@v4
         with:
-          name: ReFlash-0.11.2-Vulkan-STANDALONE-alpha-UNTESTED
+          name: ReFlash-0.11.4-Direct-Recorder-alpha-UNTESTED
           path: |
-            build/libs/reflash-0.11.2-vulkan-alpha.jar
-            build/libs/reflash-0.11.2-vulkan-alpha.jar.sha256
+            build/libs/reflash-0.11.4-vulkan-alpha.jar
+            build/libs/reflash-0.11.4-vulkan-alpha.jar.sha256
             third-party-sources/Momenton-1.0.0-source.zip
             THIRD_PARTY_NOTICES.md
             LICENSE

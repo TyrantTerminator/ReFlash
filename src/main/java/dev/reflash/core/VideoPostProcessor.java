@@ -71,16 +71,16 @@ public final class VideoPostProcessor {
             }
             final UpscaleProfile profile=prefs.upscaleProfile();
             final String vf=filter(prefs.outputWidth(),prefs.outputHeight(),prefs.outputFps(),profile);
-            final int width=prefs.outputWidth(),height=prefs.outputHeight(),fps=prefs.outputFps();
+            final int width=prefs.outputWidth(),height=prefs.outputHeight(),fps=prefs.outputFps(),crf=prefs.qualityCrf();
             CANCELLED.set(false);jobsDone=0;jobsTotal=inputs.size();
             status="Queued "+jobsTotal+" videos";
-            Thread thread=new Thread(()->processQueue(gameDir,inputs,vf,width,height,fps,profile),"ReFlash-video-export-queue");
+            Thread thread=new Thread(()->processQueue(gameDir,inputs,vf,width,height,fps,profile,crf),"ReFlash-video-export-queue");
             thread.setDaemon(true);thread.start();return true;
         }catch(IOException|IllegalArgumentException e){
             status="Video batch setup failed: "+e.getMessage();RUNNING.set(false);return false;
         }
     }
-    private static void processQueue(Path gameDir,List<Path> files,String vf,int width,int height,int fps,UpscaleProfile profile){
+    private static void processQueue(Path gameDir,List<Path> files,String vf,int width,int height,int fps,UpscaleProfile profile,int crf){
         try{
             for(int i=0;i<files.size();i++){
                 if(CANCELLED.get())break;
@@ -91,19 +91,19 @@ public final class VideoPostProcessor {
                 for(int j=1;Files.exists(out)&&j<=999;j++)out=input.resolveSibling(stem+"-"+j+".mp4");
                 if(Files.exists(out)){status="Too many existing exports of "+name;break;}
                 status="Video "+(i+1)+"/"+files.size()+" — "+input.getFileName();
-                if(!transcode(gameDir,input,out,vf,i+1,files.size(),profile))break;
+                if(!transcode(gameDir,input,out,vf,i+1,files.size(),profile,crf))break;
                 jobsDone++;
             }
             if(CANCELLED.get())status="Export queue cancelled";
             else if(jobsDone==files.size())status="Completed "+jobsDone+" video(s). Last: "+lastOutput.getFileName();
         }finally{active=null;RUNNING.set(false);}
     }
-    private static boolean transcode(Path gameDir,Path input,Path out,String vf,int index,int count,UpscaleProfile profile){
+    private static boolean transcode(Path gameDir,Path input,Path out,String vf,int index,int count,UpscaleProfile profile,int crf){
         Process process=null;
         try{
             // ProcessBuilder arguments are a list: paths are never passed through cmd.exe or a shell.
             var builder=new ProcessBuilder(FfmpegCheck.candidate(gameDir),"-hide_banner","-nostdin","-y","-i",input.toString(),
-                "-vf",vf,"-fps_mode","cfr","-c:v","libx264","-preset",profile.encoder(),"-crf",String.valueOf(profile.crf()),
+                "-vf",vf,"-fps_mode","cfr","-c:v","libx264","-preset",profile.encoder(),"-crf",String.valueOf(crf),
                 "-threads","2","-pix_fmt","yuv420p","-c:a","aac","-b:a","160k", "-movflags","+faststart",out.toString());
             process=builder.redirectErrorStream(true).start();active=process;
             String error="No encoder details";

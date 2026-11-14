@@ -15,7 +15,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.WeakHashMap;
 
-/** One 22x22 clickable branded icon in each menu. Never draws an always-on gameplay overlay. */
+/** Dedicated clickable ReFlash button on title and pause screens. F7 opens it in-game. */
 public final class ReFlashPauseMenu {
     private ReFlashPauseMenu() { }
     private static final Map<Screen, WeakReference<Button>> ACTIVE = new WeakHashMap<>();
@@ -25,11 +25,11 @@ public final class ReFlashPauseMenu {
         ScreenEvents.AFTER_INIT.register((client, screen, width, height) -> {
             boolean isPause = screen instanceof PauseScreen;
             if (!isPause && !(screen instanceof TitleScreen)) return;
-            int x = isPause ? width - 30 : 8;
-            int y = isPause ? 8 : 35;
+            int x = isPause ? width - 112 : 9;
+            int y = 8;
             Button button = Button.builder(Component.empty(), ignored ->
                     client.setScreen(new ReFlashScreen(screen)))
-                    .bounds(x, y, 22, 22).build();
+                    .bounds(x, y, 102, 27).build();
             button.setTooltip(Tooltip.create(Component.literal(
                     "ReFlash Manager - " + ReFlashClient.managerKeyName())));
             Screens.getButtons(screen).add(button);
@@ -39,7 +39,8 @@ public final class ReFlashPauseMenu {
                     WeakReference<Button> ref = ACTIVE.get(rendered);
                     Button current = ref == null ? null : ref.get();
                     if (current != null && current.visible) {
-                        StudioTheme.tinyLogo(graphics, current.getX() + 3, current.getY() + 3);
+                        StudioTheme.tinyLogo(graphics, current.getX() + 5, current.getY() + 5);
+                        graphics.drawString(client.font,"ReFlash",current.getX()+29,current.getY()+9,0xFFFFFFFF,false);
                     }
                 });
             }

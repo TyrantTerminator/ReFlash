@@ -11,8 +11,17 @@ public final class ReFlashRecordingHud {
         Minecraft client = Minecraft.getInstance();
         Preferences config = ReFlashClient.preferences();
         if (config == null || config.hudPosition() == Preferences.HudPosition.OFF ||
-                client.player == null || client.level == null || client.screen != null ||
-                (!ReFlashClient.cachedRecording() && ReFlashClient.saveState()!=dev.reflash.core.RecordingSaveMonitor.State.SAVING)) return;
+                client.player == null || client.level == null || client.screen != null) return;
+        if (!ReFlashClient.cachedRecording() &&
+                ReFlashClient.saveState()!=dev.reflash.core.RecordingSaveMonitor.State.SAVING) {
+            // A tiny always-visible F7 shortcut, not a fake clickable HUD element:
+            // Minecraft captures the mouse while playing. F7 opens the real controls.
+            int w=64, x=config.hudPosition()==Preferences.HudPosition.TOP_LEFT?7:graphics.guiWidth()-w-7;
+            graphics.fill(x,7,x+w,23,0xB5081020);
+            graphics.fill(x,7,x+2,23,0xFFBE8BFF);
+            graphics.drawString(client.font,"R  F7",x+10,11,0xFFE8D5FF,false);
+            return;
+        }
         int t = Math.max(0, ReFlashClient.cachedRecordingTicks()) / 20;
         boolean saving=!ReFlashClient.cachedRecording();
         String label = saving ? "SAVING REPLAY" : String.format(java.util.Locale.ROOT, "REC  %02d:%02d", t/60, t%60);

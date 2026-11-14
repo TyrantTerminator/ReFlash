@@ -27,7 +27,7 @@ public class VulkanClientContractTest {
       ScreenEvents.AFTER_INIT.fire(game,screen,800,450);
       if(screen.widgets.size()!=1)throw new AssertionError("Expected one tiny button on "+screen.getClass());
       var button=screen.widgets.get(0);
-      if(button.getWidth()!=22||button.getHeight()!=22)throw new AssertionError("Icon is not 22x22");
+      if(button.getWidth()!=102||button.getHeight()!=27)throw new AssertionError("Dedicated ReFlash button must be 102x27");
       ScreenEvents.afterRender(screen).fire(screen,new net.minecraft.client.gui.GuiGraphics(800,450));
       button.click();
       if(!(game.screen instanceof ReFlashScreen))throw new AssertionError("Icon did not open Manager");
