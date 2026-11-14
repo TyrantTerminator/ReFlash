@@ -22,6 +22,33 @@ public final class NativeReplayExporter {
     private NativeReplayExporter(){}
     private static final String BASE="com.relapzz.momenton.";
     private static volatile String status="Ready";
+    // Route ONLY exports initiated inside ReFlash; Momenton's own screens remain untouched.
+    private static volatile boolean reflashExportActive;
+    private static volatile Screen reflashParent;
+    public static void routeExportScreen(Minecraft client) {
+        if(!reflashExportActive || client.screen == null) return;
+        String name=client.screen.getClass().getName();
+        if(name.equals(BASE+"ui.ExportFailedScreen")) {
+            Screen parent=reflashParent;
+            reflashExportActive=false;
+            client.setScreen(ReFlashExportProgressScreen.failed(parent,
+                "The replay encoder could not finish. Check reflash/export.log for details."));
+        } else if(name.equals(BASE+"ui.ExportFinishingScreen")) {
+            try {
+                java.lang.reflect.Field field=client.screen.getClass().getDeclaredField("finisher");
+                field.setAccessible(true);
+                Object finisher=field.get(client.screen);
+                Screen parent=reflashParent;
+                reflashExportActive=false;
+                client.setScreen(ReFlashExportProgressScreen.finishing(parent,finisher));
+            } catch (ReflectiveOperationException | RuntimeException ex) {
+                // Never interrupt a valid export if Momenton's internal API changes.
+                status="ReFlash progress skin unavailable; native finisher is still active";
+                reflashExportActive=false;
+            }
+        }
+    }
+
     public static String status(){return status;}
     public static boolean isRendering(){
         try{return Boolean.TRUE.equals(Class.forName(BASE+"export.ExportSession").getMethod("isExporting").invoke(null));}
@@ -51,7 +78,7 @@ public final class NativeReplayExporter {
             if(size==null)return false;
             Path exportDir=VideoExportLibrary.folder(gameDir);
             Files.createDirectories(exportDir);
-            String stem=project.replayPath().getFileName().toString().replaceFirst("(?i)\\.momenton$","");
+            String stem=project.replayPath().getFileName().toString().replaceFirst("(?i)\\.reflash$","");
             String prefix=stem+"-native-"+size[0]+"x"+size[1]+"-"+fps+"fps";
             Path output=exportDir.resolve(prefix+".mp4");
             for(int i=1;Files.exists(output)&&i<1000;i++)output=exportDir.resolve(prefix+"-"+i+".mp4");
@@ -71,9 +98,11 @@ public final class NativeReplayExporter {
                             FfmpegCheck.candidate(gameDir),args,0,false,1.0f,project.hasMicrophoneTrack()?1.0f:0.0f);
             Class<?> session=Class.forName(BASE+"export.ExportSession");
             // Momenton manages replay loading, world audio and rendering on its own.
+            reflashParent=parent;
+            reflashExportActive=true;
             session.getMethod("start",Minecraft.class,settingsClass,Screen.class).invoke(null,client,nativeSettings,parent);
             if(!isRendering()){
-                status="Render did not start: check Momenton export error / latest.log";return false;
+                status="Render did not start. See reflash/export.log or latest.log";return false;
             }
             status="Rendering "+output.getFileName()+" (native window size)";
             return true;

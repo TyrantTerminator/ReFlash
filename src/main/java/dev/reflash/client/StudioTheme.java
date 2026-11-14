@@ -32,6 +32,15 @@ public final class StudioTheme {
     public static final int AMBER = 0xFFFFBB65;
     public static final int GREEN = 0xFF70EFBB;
     public static final int RED = 0xFFFF668D;
+    /** Small color interpolation for menu-only focus animations. */
+    public static int mix(int from,int to,float amount) {
+        float t=Math.clamp(amount,0f,1f);
+        int a=Math.round(((from>>>24)&255)*(1-t)+((to>>>24)&255)*t);
+        int rr=Math.round(((from>>>16)&255)*(1-t)+((to>>>16)&255)*t);
+        int gg=Math.round(((from>>>8)&255)*(1-t)+((to>>>8)&255)*t);
+        int bb=Math.round((from&255)*(1-t)+(to&255)*t);
+        return (a<<24)|(rr<<16)|(gg<<8)|bb;
+    }
 
     public static void rect(GuiGraphics g, int x, int y, int w, int h, int color) {
         if (w > 0 && h > 0) g.fill(x, y, x + w, y + h, color);

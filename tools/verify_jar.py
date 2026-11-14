@@ -3,7 +3,7 @@
 from pathlib import Path
 from zipfile import ZipFile, BadZipFile
 import json, sys, hashlib, io
-VERSION = '0.10.0-vulkan-alpha'
+VERSION = '0.11.0-vulkan-alpha'
 REQUIRED = ('dev/reflash/client/ReFlashClient.class',
             'dev/reflash/client/StudioTheme.class',
             'dev/reflash/client/ReFlashPauseMenu.class',
@@ -18,7 +18,11 @@ REQUIRED = ('dev/reflash/client/ReFlashClient.class',
             'dev/reflash/core/DiagnosticsReport.class',
             'dev/reflash/client/NativeReplayExporter.class',
             'dev/reflash/core/FfmpegCheck.class',
-            'dev/reflash/client/MomentonBridge.class',
+            'dev/reflash/client/ReFlashReplayBridge.class',
+            'dev/reflash/client/EmbeddedReplayRuntime.class',
+            'com/relapzz/momenton/record/Recorder.class',
+            'com/relapzz/momenton/playback/ReplaySession.class',
+            'momenton.mixins.json',
             'dev/reflash/core/VulkanSupport.class',
             'assets/reflash/textures/gui/studio_landscape.png',
             'assets/reflash/textures/gui/reflash_mark.png',
@@ -35,16 +39,12 @@ def verify(path):
     m=json.loads(z.read('fabric.mod.json').decode('utf8'))
     assert m['id']=='reflash' and m['version']==VERSION, m
     assert m['depends'].get('minecraft')=='1.21.11',m
-    assert m['depends'].get('momenton') and 'flashback' not in m['depends'],m
-    nested='META-INF/jars/momenton-1.0.0.jar'
-    assert nested in names, 'Missing nested Momenton JAR'
-    assert any(j['file']==nested for j in m.get('jars',[])), 'Nested JAR missing from Fabric metadata'
-    nested_bytes=z.read(nested)
-    expected='12f11462bed41428fed8f5f9d48a335f4af6df6302262acdade68e1d58423d75'
-    assert hashlib.sha256(nested_bytes).hexdigest()==expected, 'Wrong Momenton JAR SHA-256'
-    with ZipFile(io.BytesIO(nested_bytes)) as dep:
-      embedded=json.loads(dep.read('fabric.mod.json'))
-      assert embedded['id']=='momenton', embedded
+    assert 'momenton' not in m['depends'] and not m.get('jars'), m
+    assert m.get('mixins')==['momenton.mixins.json'],m
+    assert 'META-INF/jars/momenton-1.0.0.jar' not in names,'Unexpected nested mod'
+    # Internal compiled source remains GPL-derived and carries its original class package.
+    assert z.read('com/relapzz/momenton/record/Recorder.class')[:4]==b'\xca\xfe\xba\xbe'
+    assert b'\x01.reflash' in z.read('com/relapzz/momenton/record/Recorder.class'), 'No .reflash output suffix in recorder'
     for name in REQUIRED:
       assert name in names,f'Missing {name}'
       blob=z.read(name)

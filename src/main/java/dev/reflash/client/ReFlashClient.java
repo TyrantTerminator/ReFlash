@@ -30,6 +30,8 @@ public final class ReFlashClient implements ClientModInitializer {
     private static RecordingSaveMonitor SAVE_MONITOR;
     private static int saveCheckTicks;
     private static boolean previousRecording;
+    private static long recordingStartedNanos;
+    private static int lastCapturedTicks;
     private static boolean recordingCached;
     private static int recordingTicksCached;
     public static boolean cachedRecording() { return recordingCached; }
@@ -42,36 +44,46 @@ public final class ReFlashClient implements ClientModInitializer {
         return managerBinding == null ? "F7" : managerBinding.getTranslatedKeyMessage().getString();
     }
     public static PerformanceSampler performanceSampler() { return FPS_METER; }
-    /** Momenton F9 is a SECOND recorder hotkey. Leave it unchanged until the user opts out. */
-    public static String momentonRecordKey(){
-        KeyMapping key=KeyMapping.get("key.momenton.toggle_recording");
-        return key==null?"Unavailable":key.isUnbound()?"Unbound":key.getTranslatedKeyMessage().getString();
-    }
-    public static boolean unbindMomentonRecordingKey(){
-        KeyMapping key=KeyMapping.get("key.momenton.toggle_recording");
-        if(key==null)return false;
-        key.setKey(InputConstants.UNKNOWN);
-        KeyMapping.resetMapping();
-        Minecraft.getInstance().options.save();
-        notifyPlayer("Momenton record key unbound. Use your ReFlash recording key instead.");
+    /** The integrated engine has no extra F9 recorder keybind. */
+    public static String engineRecordKey(){ return "Disabled (ReFlash F8 only)"; }
+    public static boolean manageEngineRecordingKey(){
+        notifyPlayer("ReFlash already owns the only recording hotkey (default F8).");
         return true;
     }
 
     /** The only ReFlash-controlled recording action: hotkey and Manager use this same path. */
     public static boolean toggleRecording(Minecraft client) {
-        boolean ok = MomentonBridge.toggleRecording(client);
+        boolean wasRecording=ReFlashReplayBridge.isRecording();
+        int gameTicksBeforeStop=wasRecording?ReFlashReplayBridge.recordingTicks():0;
+        boolean ok = ReFlashReplayBridge.toggleRecording(client);
         if (ok) {
-            recordingCached = MomentonBridge.isRecording();
-            recordingTicksCached = recordingCached ? MomentonBridge.recordingTicks() : 0;
+            recordingCached = ReFlashReplayBridge.isRecording();
+            recordingTicksCached = recordingCached ? ReFlashReplayBridge.recordingTicks() : 0;
+            if(recordingCached)lastCapturedTicks=recordingTicksCached;
             if(SAVE_MONITOR!=null){
-                if(recordingCached){SAVE_MONITOR.clear();SAVE_MONITOR.arm();}
-                else SAVE_MONITOR.begin();
+                if(recordingCached){
+                    SAVE_MONITOR.clear();SAVE_MONITOR.arm();
+                    recordingStartedNanos=System.nanoTime();lastCapturedTicks=0;
+                } else {
+                    SAVE_MONITOR.expectTicks(gameTicksBeforeStop);
+                    SAVE_MONITOR.begin();
+                    warnAboutPausedWorld(gameTicksBeforeStop);
+                }
             }
             previousRecording=recordingCached;
         }
         return ok;
     }
 
+    /** Ticks stop advancing in paused singleplayer worlds; wall time does not. */
+    private static void warnAboutPausedWorld(int gameTicks){
+        if(recordingStartedNanos<=0)return;
+        double seconds=(System.nanoTime()-recordingStartedNanos)/1e9;
+        double playable=gameTicks/20.0;
+        if(seconds-playable>5)notifyPlayer(String.format(java.util.Locale.ROOT,
+                "Recorded %.1fs of game time over %.0fs elapsed. Paused menus are excluded.",playable,seconds));
+        recordingStartedNanos=0;
+    }
     /** Shared keyboard/UI FPS comparison action; no gameplay pixel capture. */
     public static void toggleBenchmark() {
         if (FPS_METER.active()) {
@@ -112,10 +124,11 @@ public final class ReFlashClient implements ClientModInitializer {
         // Manual recording only. Discard any auto-record setting saved by older builds.
         if (preferences.autoRecord()) { preferences.setAutoRecord(false); savePreferences(); }
         // Consent-first default for brand-new installations. Existing mic preferences remain untouched.
-        if(!java.nio.file.Files.isRegularFile(FabricLoader.getInstance().getConfigDir().resolve("momenton.json"))){
-            MomentonBridge.setMicEnabled(false);
+        if(!java.nio.file.Files.isRegularFile(FabricLoader.getInstance().getConfigDir().resolve("reflash-engine.json"))){
+            ReFlashReplayBridge.setMicEnabled(false);
         }
-        SAVE_MONITOR=new RecordingSaveMonitor(MomentonBridge.replayFolder(FabricLoader.getInstance().getGameDir()));
+        SAVE_MONITOR=new RecordingSaveMonitor(ReFlashReplayBridge.replayFolder(FabricLoader.getInstance().getGameDir()));
+        EmbeddedReplayRuntime.bootstrap();
         ReFlashPauseMenu.install();
         HudElementRegistry.addLast(Identifier.fromNamespaceAndPath("reflash", "recording_indicator"),
                 (graphics, counter) -> ReFlashRecordingHud.render(graphics));
@@ -133,22 +146,36 @@ public final class ReFlashClient implements ClientModInitializer {
             // Never start automatically; recording is always an explicit action.
         });
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
-            // Momenton owns the shutdown writer; the monitor only reports when file appears.
+            // The internal replay engine owns the shutdown writer; the monitor only reports when file appears.
         });
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            MomentonBridge.onClientTick(client);
-            recordingCached = MomentonBridge.isRecording();
-            recordingTicksCached = recordingCached ? MomentonBridge.recordingTicks() : 0;
+            EmbeddedReplayRuntime.tick(client);
+            ReFlashReplayBridge.onClientTick(client);
+            // ReFlash-owned exports return to ReFlash-styled progress/error pages.
+            NativeReplayExporter.routeExportScreen(client);
+            recordingCached = ReFlashReplayBridge.isRecording();
+            recordingTicksCached = recordingCached ? ReFlashReplayBridge.recordingTicks() : 0;
+            if(recordingCached)lastCapturedTicks=recordingTicksCached;
             if(SAVE_MONITOR!=null){
-                if(recordingCached&&!previousRecording){SAVE_MONITOR.clear();SAVE_MONITOR.arm();}
-                if(!recordingCached&&previousRecording){SAVE_MONITOR.begin();notifyPlayer("Replay stopped; waiting for save confirmation");}
+                if(recordingCached&&!previousRecording){
+                    SAVE_MONITOR.clear();SAVE_MONITOR.arm();
+                    recordingStartedNanos=System.nanoTime();lastCapturedTicks=recordingTicksCached;
+                }
+                if(!recordingCached&&previousRecording){
+                    SAVE_MONITOR.expectTicks(lastCapturedTicks);
+                    SAVE_MONITOR.begin();warnAboutPausedWorld(lastCapturedTicks);
+                    notifyPlayer("Replay stopped; waiting for save confirmation");
+                }
                 previousRecording=recordingCached;
                 if(SAVE_MONITOR.state()==RecordingSaveMonitor.State.SAVING && ++saveCheckTicks>=20){
                     saveCheckTicks=0;
                     var state=SAVE_MONITOR.check();
-                    if(state==RecordingSaveMonitor.State.SAVED)notifyPlayer("Replay saved: "+SAVE_MONITOR.lastFile());
-                    if(state==RecordingSaveMonitor.State.UNCONFIRMED)notifyPlayer("Save not confirmed. Inspect Momenton replays and latest.log");
+                    if(state==RecordingSaveMonitor.State.SAVED){
+                        if(SAVE_MONITOR.shortened())notifyPlayer("Replay unexpectedly shorter than recorded ticks. Check latest.log");
+                        else notifyPlayer(String.format(java.util.Locale.ROOT,"Replay saved: %.1fs of game time",SAVE_MONITOR.savedTicks()/20.0));
+                    }
+                    if(state==RecordingSaveMonitor.State.UNCONFIRMED)notifyPlayer("Save not confirmed. Inspect ReFlash replays and latest.log");
                 }
             }
             while (managerBinding.consumeClick()) {
@@ -158,14 +185,14 @@ public final class ReFlashClient implements ClientModInitializer {
                 toggleRecording(client);
             }
             while (marker.consumeClick()) {
-                MomentonBridge.markHighlight(client);
+                ReFlashReplayBridge.markHighlight(client);
             }
             while (benchmark.consumeClick()) {
                 toggleBenchmark();
             }
-            if (FPS_METER.active() && client.screen == null) FPS_METER.tick(client.getFps(), MomentonBridge.isRecording());
+            if (FPS_METER.active() && client.screen == null) FPS_METER.tick(client.getFps(), ReFlashReplayBridge.isRecording());
 
         });
-        LOGGER.info("ReFlash Vulkan add-on: records using Momenton, not realtime screen/video encoding");
+        LOGGER.info("ReFlash Vulkan add-on: records using its integrated engine, not realtime screen/video encoding");
     }
 }

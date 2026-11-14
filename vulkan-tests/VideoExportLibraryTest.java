@@ -5,7 +5,7 @@ import java.nio.file.Files;
 public class VideoExportLibraryTest {
   public static void main(String[]args)throws Exception{
     var temp=Files.createTempDirectory("reflash-exportfiles");var folder=VideoExportLibrary.folder(temp);Files.createDirectories(folder);
-    var a=folder.resolve("one.mp4");var b=folder.resolve("two.mkv");var intermediate=folder.resolve("momenton-video-temp.mp4");
+    var a=folder.resolve("one.mp4");var b=folder.resolve("two.mkv");var intermediate=folder.resolve("reflash-video-temp.mp4");
     Files.writeString(a,"a");Thread.sleep(10);Files.writeString(b,"b");Files.writeString(intermediate,"tmp");
     var x=VideoExportLibrary.list(temp,10);
     if(x.size()!=2||!x.getFirst().fileName().equals("two.mkv"))throw new AssertionError("Filtering or ordering wrong: "+x);

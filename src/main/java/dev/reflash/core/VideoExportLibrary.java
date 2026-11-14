@@ -12,7 +12,7 @@ import java.util.Locale;
 public final class VideoExportLibrary {
     private VideoExportLibrary(){}
     public record Media(Path path,String fileName,long size,Instant modifiedAt){}
-    public static Path folder(Path gameDir){return gameDir.resolve("momenton").resolve("exports");}
+    public static Path folder(Path gameDir){return gameDir.resolve("reflash").resolve("exports");}
     public static List<Media> list(Path gameDir,int limit)throws IOException{
         if(limit<=0||!Files.isDirectory(folder(gameDir)))return List.of();
         try(var stream=Files.list(folder(gameDir))){
@@ -28,7 +28,7 @@ public final class VideoExportLibrary {
         if(p==null)return false;
         String n=p.getFileName().toString().toLowerCase(Locale.ROOT);
         return (n.endsWith(".mp4")||n.endsWith(".mkv")||n.endsWith(".mov"))
-            && !n.startsWith("momenton-video-") && !n.startsWith("momenton-audio-");
+            && !n.startsWith("reflash-video-") && !n.startsWith("reflash-audio-");
     }
     /** Don't allow accidentally processing another directory or unrelated user file. */
     public static boolean allowed(Path gameDir,Path p)throws IOException{

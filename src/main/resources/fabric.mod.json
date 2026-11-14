@@ -3,7 +3,7 @@
   "id": "reflash",
   "version": "${version}",
   "name": "ReFlash",
-  "description": "Vulkan-friendly ReFlash replay manager, custom cut UI and embedded Momenton recorder.",
+  "description": "ReFlash recording and cinematic replay editor with one integrated, GPL-derived replay engine and native .reflash archives.",
   "authors": [
     "ReFlash Project"
   ],
@@ -18,16 +18,11 @@
     "fabricloader": ">=0.19.3",
     "minecraft": "1.21.11",
     "java": ">=21",
-    "fabric-api": "*",
-    "momenton": ">=1.0.0"
+    "fabric-api": "*"
   },
   "breaks": {
-    "flashback": "*"
+    "flashback": "*",
+    "momenton": "*"
   },
-  "icon": "assets/reflash/icon.png",
-  "jars": [
-    {
-      "file": "META-INF/jars/momenton-1.0.0.jar"
-    }
-  ]
+  "icon": "assets/reflash/icon.png"
 }

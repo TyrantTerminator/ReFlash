@@ -7,7 +7,7 @@ import java.util.zip.ZipOutputStream;
 public class ReplayProjectTest {
     public static void main(String[] args) throws Exception {
         var tmp = Files.createTempDirectory("reflash-project-test-");
-        var replay = tmp.resolve("testing.momenton");
+        var replay = tmp.resolve("testing.reflash");
         try(var z = new ZipOutputStream(Files.newOutputStream(replay))){
             z.putNextEntry(new ZipEntry("metadata.json"));
             z.write("{\"durationTicks\": 2400, \"micStartTick\": 42.5}".getBytes(StandardCharsets.UTF_8));
@@ -24,7 +24,7 @@ public class ReplayProjectTest {
         if(loaded.clips().size()!=2 || loaded.lengthTicks()!=1800)throw new AssertionError("reload");
         loaded.delete(1);
         loaded.save();
-        if(!Files.exists(ReplayProject.projectPath(replay).resolveSibling("testing.momenton.json.reflash-backup")))throw new AssertionError("backup");
+        if(!Files.exists(ReplayProject.projectPath(replay).resolveSibling("testing.reflash.json.reflash-backup")))throw new AssertionError("backup");
         System.out.println("PASS ReFlash project editor creates compatible clip JSON and backups");
     }
 }

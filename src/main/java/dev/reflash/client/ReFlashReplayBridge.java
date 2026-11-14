@@ -12,25 +12,41 @@ import java.nio.file.StandardOpenOption;
 import java.util.Locale;
 
 /**
- * Vulkan-safe integration with separately installed Momenton 1.0.0.
- * No OpenGL, framebuffer reads, or imports of Momenton implementation classes.
- * Runtime lookup isolates changes in third-party APIs and fails closed.
+ * Vulkan-safe access to the integrated, GPL-licensed replay engine.
+ * No OpenGL, framebuffer reads, or imports of ReFlash engine implementation classes.
+ * No additional Fabric mod is required. Uses a private internal engine API.
  * This bridge is NOT a replacement for the missing camera-path exporter.
  */
-public final class MomentonBridge {
-    private MomentonBridge() { }
+public final class ReFlashReplayBridge {
+    private ReFlashReplayBridge() { }
     private static final String BASE = "com.relapzz.momenton.";
     private static int editQueueTicks;
+    // Remember the Studio screen only while the user is editing a replay they opened from ReFlash.
+    // ReFlash engine's own replay browser and export controls are not globally overridden.
+    private static ReFlashScreen studioEditorOrigin;
 
     /** Select -> Edit directly from Library, even when playback needs an async world transition. */
     public static boolean openReplayForEditing(Minecraft client, Path replayFile) {
         editQueueTicks = 0;
+        ReFlashScreen origin=client.screen instanceof ReFlashScreen ref?ref:null;
         if (!openReplay(client, replayFile)) return false;
+        studioEditorOrigin=origin;
         editQueueTicks = 600;
         return true;
     }
 
     public static void onClientTick(Minecraft client) {
+        if (studioEditorOrigin!=null && client.screen!=null &&
+                client.screen.getClass().getName().equals(BASE+"ui.ExportScreen")) {
+            // User pressed Export in the ReFlash engine replay editor reached through ReFlash:
+            // return to the existing custom ReFlash Export Studio, preserving selection.
+            ReFlashScreen studio=studioEditorOrigin;
+            studioEditorOrigin=null;
+            editQueueTicks=0;
+            client.setScreen(studio);
+            studio.openExportTab();
+            return;
+        }
         if (editQueueTicks <= 0) return;
         if (isInReplay()) {
             editQueueTicks = 0;
@@ -42,7 +58,7 @@ public final class MomentonBridge {
 
 
     public static boolean backendPresent() {
-        try { Class.forName(BASE + "record.Recorder", false, MomentonBridge.class.getClassLoader()); return true; }
+        try { Class.forName(BASE + "record.Recorder", false, ReFlashReplayBridge.class.getClassLoader()); return true; }
         catch (ClassNotFoundException | LinkageError ex) { return false; }
     }
 
@@ -68,7 +84,7 @@ public final class MomentonBridge {
 
     public static boolean isInReplay() { return booleanCall("playback.ReplaySession", "isPlaying"); }
 
-    /** Native Momenton UI, not a duplicate/replacement editor. */
+    /** Native ReFlash engine UI, not a duplicate/replacement editor. */
     public static boolean openReplayBrowser(Minecraft client, Screen parent) {
         try {
             Screen screen = (Screen) Class.forName(BASE + "ui.ReplayBrowserScreen")
@@ -76,12 +92,12 @@ public final class MomentonBridge {
             client.setScreen(screen);
             return true;
         } catch (ReflectiveOperationException | LinkageError | RuntimeException ex) {
-            ReFlashClient.notifyPlayer("Momenton replay browser unavailable. Check Momenton 1.0.0.");
+            ReFlashClient.notifyPlayer("ReFlash replay browser unavailable. Check logs.");
             return false;
         }
     }
 
-    /** Uses Momenton's actual editor if a replay is running. */
+    /** Uses ReFlash engine's actual editor if a replay is running. */
     public static boolean openNativeEditor(Minecraft client) {
         if (!isInReplay()) return false;
         try {
@@ -90,7 +106,7 @@ public final class MomentonBridge {
         } catch (ReflectiveOperationException | LinkageError | RuntimeException ex) { return false; }
     }
 
-    /** Launch actual .momenton playback. This may disconnect from a live world. */
+    /** Launch actual .reflash playback. This may disconnect from a live world. */
     public static boolean openReplay(Minecraft client, Path replayFile) {
         if (!validReplay(replayFile) || isRecording()) return false;
         try {
@@ -101,7 +117,7 @@ public final class MomentonBridge {
 
     public static boolean toggleRecording(Minecraft client) {
         if (!backendPresent() || isInReplay() || client.player == null || client.level == null) {
-            ReFlashClient.notifyPlayer("Recording needs a live world and Momenton 1.0.0.");
+            ReFlashClient.notifyPlayer("Recording requires a live world and an initialized ReFlash engine.");
             return false;
         }
         boolean before = isRecording();
@@ -115,7 +131,7 @@ public final class MomentonBridge {
             ReFlashClient.notifyPlayer(after ? "Replay recording started (Vulkan-safe)." : "Replay recording stopped and saving.");
             return true;
         } catch (ReflectiveOperationException | LinkageError | RuntimeException ex) {
-            ReFlashClient.notifyPlayer("Momenton recorder failed. Check latest.log.");
+            ReFlashClient.notifyPlayer("ReFlash recorder failed. Check latest.log.");
             return false;
         }
     }
@@ -141,7 +157,7 @@ public final class MomentonBridge {
         }
     }
 
-    /** Opens Momenton's native export settings, without claiming unavailable Vulkan QHD rendering. */
+    /** Opens ReFlash engine's native export settings, without claiming unavailable Vulkan QHD rendering. */
     public static boolean openNativeExport(Minecraft client, Screen parent) {
         if (!isInReplay()) return false;
         try {
@@ -156,7 +172,7 @@ public final class MomentonBridge {
         } catch (ReflectiveOperationException | LinkageError | RuntimeException ex) { return false; }
     }
 
-    /** Momenton's actual microphone preference. Changes take effect at the next recording. */
+    /** ReFlash engine's actual microphone preference. Changes take effect at the next recording. */
     public static boolean micEnabled() {
         try {
             Object cfg = call("config.MomentonConfig", "get", new Class<?>[0]);
@@ -200,6 +216,6 @@ public final class MomentonBridge {
 
     private static boolean validReplay(Path p) {
         return p != null && Files.isRegularFile(p) &&
-                p.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".momenton");
+                p.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".reflash");
     }
 }

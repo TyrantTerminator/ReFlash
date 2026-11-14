@@ -22,6 +22,7 @@ public final class Preferences {
     private boolean autoRecord = false;
     private boolean showNotifications = true;
     private ExportPreset exportPreset = ExportPreset.QHD120;
+    private UpscaleProfile upscaleProfile = UpscaleProfile.BALANCED;
 
     public Preferences(Path file) {
         this.file = file;
@@ -46,6 +47,7 @@ public final class Preferences {
         catch (NumberFormatException ex) { setOutputPreset(2560, 1440, 120); }
         showNotifications = Boolean.parseBoolean(p.getProperty("notifications", "true"));
         exportPreset = ExportPreset.fromId(p.getProperty("exportPreset", "QHD120"));
+        upscaleProfile = UpscaleProfile.byName(p.getProperty("upscaleProfile", "BALANCED"));
     }
 
     public void save() throws IOException {
@@ -60,6 +62,7 @@ public final class Preferences {
         p.setProperty("outputFps", Integer.toString(outputFps));
         p.setProperty("notifications", Boolean.toString(showNotifications));
         p.setProperty("exportPreset", exportPreset.id());
+        p.setProperty("upscaleProfile", upscaleProfile.name());
         Path part = file.resolveSibling(file.getFileName() + ".tmp");
         try (OutputStream out = Files.newOutputStream(part)) {
             p.store(out, "ReFlash settings");
@@ -90,6 +93,8 @@ public final class Preferences {
     public boolean notifications() { return showNotifications; }
     public void setAutoRecord(boolean value) { autoRecord = value; }
     public void setNotifications(boolean value) { showNotifications = value; }
+    public UpscaleProfile upscaleProfile(){return upscaleProfile;}
+    public void setUpscaleProfile(UpscaleProfile profile){upscaleProfile=java.util.Objects.requireNonNull(profile);}
     public ExportPreset exportPreset() { return exportPreset; }
     public void setExportPreset(ExportPreset preset) { exportPreset = java.util.Objects.requireNonNull(preset); }
 }

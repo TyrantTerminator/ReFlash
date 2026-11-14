@@ -6,7 +6,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 public class EditorTimelineTest {
     public static void main(String[] args)throws Exception{
-        var tmp=Files.createTempDirectory("reflash-timeline-");var replay=tmp.resolve("source.momenton");
+        var tmp=Files.createTempDirectory("reflash-timeline-");var replay=tmp.resolve("source.reflash");
         try(var z=new ZipOutputStream(Files.newOutputStream(replay))){z.putNextEntry(new ZipEntry("metadata.json"));z.write("{\"durationTicks\":1000}".getBytes(StandardCharsets.UTF_8));z.closeEntry();}
         var p=ReplayProject.open(replay);
         if(!p.splitAt(0,333))throw new AssertionError("splitAt rejected");

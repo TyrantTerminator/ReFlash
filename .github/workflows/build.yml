@@ -28,32 +28,36 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.7.0'
-      - name: Download pinned Momenton 1.0.0 for bundled single-JAR build
-        run: |
-          mkdir -p src/main/resources/META-INF/jars
-          curl --fail --location --retry 3 --retry-delay 2 \
-            https://github.com/Relapzzz/momenton/releases/download/v1.0.0/momenton-1.0.0.jar \
-            -o src/main/resources/META-INF/jars/momenton-1.0.0.jar
-          echo '12f11462bed41428fed8f5f9d48a335f4af6df6302262acdade68e1d58423d75  src/main/resources/META-INF/jars/momenton-1.0.0.jar' | sha256sum --check
       - name: Build remapped Fabric JAR
         run: gradle --no-daemon clean build --stacktrace
+      - name: Download pinned GPL engine binary for single-mod integration
+        run: |
+          mkdir -p build/upstream
+          curl --fail --location --retry 3 --retry-delay 2 \
+            https://github.com/Relapzzz/momenton/releases/download/v1.0.0/momenton-1.0.0.jar \
+            -o build/upstream/momenton-1.0.0.jar
+          echo '12f11462bed41428fed8f5f9d48a335f4af6df6302262acdade68e1d58423d75  build/upstream/momenton-1.0.0.jar' | sha256sum --check
+      - name: Integrate replay engine inside single ReFlash mod
+        run: python3 tools/merge_standalone_engine.py build/libs/reflash-0.11.0-vulkan-alpha.jar build/upstream/momenton-1.0.0.jar
       - name: Download Momenton corresponding source for GPL redistribution
         run: |
           mkdir -p third-party-sources
           curl --fail --location --retry 3 \
             https://github.com/Relapzzz/momenton/archive/refs/tags/v1.0.0.zip \
             -o third-party-sources/Momenton-1.0.0-source.zip
+      - name: Verify integrated standalone engine
+        run: python3 tools/check_standalone_engine.py build/libs/reflash-0.11.0-vulkan-alpha.jar
       - name: Verify JAR metadata
-        run: python3 tools/verify_jar.py build/libs/reflash-0.10.0-vulkan-alpha.jar
+        run: python3 tools/verify_jar.py build/libs/reflash-0.11.0-vulkan-alpha.jar
       - name: SHA-256 checksum
-        run: sha256sum build/libs/reflash-0.10.0-vulkan-alpha.jar > build/libs/reflash-0.10.0-vulkan-alpha.jar.sha256
+        run: sha256sum build/libs/reflash-0.11.0-vulkan-alpha.jar > build/libs/reflash-0.11.0-vulkan-alpha.jar.sha256
       - name: Upload alpha JAR
         uses: actions/upload-artifact@v4
         with:
-          name: ReFlash-0.10.0-Vulkan-BUNDLED-alpha-UNTESTED
+          name: ReFlash-0.11.0-Vulkan-STANDALONE-alpha-UNTESTED
           path: |
-            build/libs/reflash-0.10.0-vulkan-alpha.jar
-            build/libs/reflash-0.10.0-vulkan-alpha.jar.sha256
+            build/libs/reflash-0.11.0-vulkan-alpha.jar
+            build/libs/reflash-0.11.0-vulkan-alpha.jar.sha256
             third-party-sources/Momenton-1.0.0-source.zip
             THIRD_PARTY_NOTICES.md
             LICENSE

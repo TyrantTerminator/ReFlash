@@ -1,10 +1,10 @@
-ReFlash 0.10.0 Vulkan alpha — full source.
+ReFlash v0.11.0 standalone engine — SOURCE / BUILD CANDIDATE ONLY
 
-This is NOT a compiled Minecraft mod. Use the separate UPDATE-AND-BUILD ZIP (double-click APPLY-UPDATE-AND-BUILD.bat after extracting) to publish and compile with GitHub Actions.
+This is not an installable Minecraft JAR.
+Do not put this ZIP inside mods.
 
-Java 21 for local fake-API unit tests: bash vulkan-tests/test.sh
-With FFmpeg: bash vulkan-tests/test-video-integration.sh
-README.md — features and installation
-ROADMAP-35.md — what is done, partial and pending
-VERIFICATION.md — actual tests and unverified claims
-THIRD_PARTY_NOTICES.md — embedded Momenton GPL licensing
+Read STANDALONE-RELEASE-NOTES.md for what is implemented, what remains untested,
+and the GPL licensing/format information.
+
+You do not need to install this update yet. The existing v0.10.0 JAR remains the
+last confirmed production build.

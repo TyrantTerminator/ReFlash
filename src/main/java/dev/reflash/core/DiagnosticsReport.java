@@ -17,12 +17,12 @@ public final class DiagnosticsReport {
             Files.createDirectories(folder);
             String s="ReFlash diagnostic report (safe to share after review)\n"+
                "Generated: "+Instant.now()+"\n"+
-               "ReFlash version: 0.10.0-vulkan-alpha\n"+
+               "ReFlash version: 0.11.0-vulkan-alpha\n"+
                "Minecraft target: 1.21.11 Fabric\n"+
                "OS family: "+safeOs()+"\n"+
                "Java major: "+Runtime.version().feature()+"\n"+
-               "Momenton engine detected: "+backendPresent+"\n"+
-               "Independent Momenton record key: "+allowedKey(duplicateKey)+"\n"+
+               "Internal replay engine detected: "+backendPresent+"\n"+
+               "Recording key ownership: "+allowedKey(duplicateKey)+"\n"+
                "FFmpeg accessible: "+ffmpeg+"\n"+
                "Recording indicator: "+prefs.hudPosition()+"\n"+
                "Recording mode: manual\n"+

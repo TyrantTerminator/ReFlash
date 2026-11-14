@@ -8,8 +8,8 @@ public class DiagnosticsReportTest{
     var out=DiagnosticsReport.create(temp,p,true,"F9",result,true);
     if(out==null||!Files.exists(out))throw new AssertionError("No report");
     var text=Files.readString(out);
-    if(!text.contains("Momenton engine detected: true")||text.contains(temp.toString()))throw new AssertionError("Status missing or path leaked");
-    if(!text.contains("Independent Momenton record key: F9"))throw new AssertionError("No key info");
+    if(!text.contains("Internal replay engine detected: true")||text.contains(temp.toString()))throw new AssertionError("Status missing or path leaked");
+    if(!text.contains("Recording key ownership: F9"))throw new AssertionError("No key info");
     System.out.println("PASS privacy-filtered local diagnostic report");
  }
 }

@@ -17,7 +17,7 @@ public final class ReplayIndex {
         if (limit <= 0 || !Files.isDirectory(folder)) return List.of();
         try (Stream<Path> files = Files.list(folder)) {
             return files.filter(Files::isRegularFile)
-                    .filter(p -> p.getFileName().toString().toLowerCase(java.util.Locale.ROOT).endsWith(".momenton"))
+                    .filter(p -> p.getFileName().toString().toLowerCase(java.util.Locale.ROOT).endsWith(".reflash"))
                     .map(p -> {
                         try {
                             return new Replay(p.getFileName().toString(), p,

@@ -13,7 +13,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.ZipFile;
 
-/** Non-destructive .momenton clip editing. Writes only a Momenton-compatible sidecar project. */
+/** Non-destructive .reflash clip editing. Writes only a Momenton-compatible sidecar project. */
 public final class ReplayProject {
     public record Clip(int startTick, int endTick) {
         public Clip { if (startTick < 0 || endTick <= startTick) throw new IllegalArgumentException("Invalid clip"); }
@@ -45,8 +45,8 @@ public final class ReplayProject {
     public boolean canRedo(){return !redo.isEmpty();}
 
     public static ReplayProject open(Path replay) throws IOException {
-        if (!Files.isRegularFile(replay)||!replay.getFileName().toString().endsWith(".momenton"))
-            throw new IOException("Not a Momenton replay");
+        if (!Files.isRegularFile(replay)||!replay.getFileName().toString().endsWith(".reflash"))
+            throw new IOException("Not a ReFlash replay");
         String metadata;
         try (ZipFile zip=new ZipFile(replay.toFile())){
             var entry=zip.getEntry("metadata.json");
@@ -119,7 +119,7 @@ public final class ReplayProject {
         if(clips.size()==1&&clips.getFirst().equals(new Clip(0,sourceTicks)))return false;
         checkpoint();clips.clear();clips.add(new Clip(0,sourceTicks));return true;
     }
-    /** Saves atomically and retains a backup of the previously saved edits. Never modifies .momenton. */
+    /** Saves atomically and retains a backup of the previously saved edits. Never modifies .reflash. */
     public void save() throws IOException {
         Path file=projectPath(replay);
         if(Files.isRegularFile(file)){

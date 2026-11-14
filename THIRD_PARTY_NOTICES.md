@@ -1,13 +1,17 @@
-# Third-party components — ReFlash bundle
+# Replay engine attribution — ReFlash 0.11.0
 
-Momenton 1.0.0 by Relapzzz is supplied as a separate Fabric mod JAR inside the ReFlash archive, through Fabric Loader's documented nested-mod support.
+ReFlash integrates a modified **Momenton v1.0.0** replay engine by Relapzzz
+(https://github.com/Relapzzz/momenton), originally licensed under GPL-3.0-only.
+This is a GPL-derived source fork inside one Fabric mod, **not a clean-room engine**.
+There is no separate Momenton mod, mod ID or nested Fabric mod required at runtime.
 
-- Original source: https://github.com/Relapzzz/momenton/tree/v1.0.0
-- Original binary: https://github.com/Relapzzz/momenton/releases/download/v1.0.0/momenton-1.0.0.jar
-- Licensing: GPL-3.0-only; see `META-INF/LICENSES/Momenton-GPL-3.0-only.txt`.
-- ReFlash-origin source (MIT historically): see `META-INF/LICENSES/ReFlash-MIT.txt`.
-- The combined redistributed bundle is published under GPL-3.0-only conditions. This includes an obligation to provide complete corresponding source; the GitHub workflow downloads upstream's tag source and uploads it alongside this bundle.
+Changes: integrate the compiled replay engine into the top-level ReFlash JAR;
+patch internal archive suffix to `.reflash`, store data under `reflash/`, and run
+the engine's tick methods through ReFlash so its title screen, HUD and F9
+recording hotkey aren't installed. The underlying binary chunk encoding is still
+derived from Momenton; old `.momenton` archives may be converted non-destructively.
 
-Momenton includes adapted components from ReplayMod (GPL-3.0). Consult upstream IMPLEMENTATION_PLAN.md for file-level attribution. The embedded Momenton classes are an unmodified verified upstream release binary; ReFlash adds a separate manager and does not claim authorship of Momenton.
-
-Momenton may be updated independently. Check the source and binary for changes and copyright attribution before bumping the pinned version.
+The exact upstream source is included in the build artifact as a downloadable
+`Momenton-1.0.0-source.zip`. The modified source and the bytecode patch/merge
+scripts are included in ReFlash's complete corresponding source. Distribution
+of this combined work is under GPL-3.0-only and must preserve notices.

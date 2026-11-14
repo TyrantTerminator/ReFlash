@@ -10,7 +10,7 @@ public class ExportQueueIntegrationTest{
     if(sample.waitFor()!=0 || Files.size(fixture)<100)throw new AssertionError("Could not generate test input");
     Path game=Files.createTempDirectory("reflash-queue-video");Path exports=Files.createDirectories(game.resolve("momenton/exports"));
     Path a=exports.resolve("alpha.mp4"),b=exports.resolve("beta.mp4");Files.copy(fixture,a);Files.copy(fixture,b);
-    Preferences prefs=new Preferences(game.resolve("prefs"));prefs.setOutputPreset(640,360,30);
+    Preferences prefs=new Preferences(game.resolve("prefs"));prefs.setOutputPreset(640,360,30);prefs.setUpscaleProfile(dev.reflash.core.UpscaleProfile.SHARP);
     if(!VideoPostProcessor.startBatch(game,java.util.List.of(a,b),prefs))throw new AssertionError(VideoPostProcessor.status());
     if(VideoPostProcessor.startSelected(game,a,prefs))throw new AssertionError("Parallel export accepted");
     for(int i=0;i<600&&VideoPostProcessor.running();i++)Thread.sleep(50);

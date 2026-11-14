@@ -1,3 +1,7 @@
+# ReFlash v0.11.0 — standalone integrated replay engine (build candidate)
+
+ReFlash is being refactored into a **single Fabric mod** with `.reflash` recording files. See `STANDALONE-RELEASE-NOTES.md` before building or installing. The engine implementation is a GPL-licensed fork derived from Momenton; it is no longer a separate runtime mod.
+
 # ReFlash Studio — Vulkan alpha v0.10.0
 
 **Minecraft Java Edition 1.21.11 / Fabric / VulkanMod-oriented replay recording.**

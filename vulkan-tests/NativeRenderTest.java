@@ -6,7 +6,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 public class NativeRenderTest {
  public static void main(String[]args)throws Exception{
-    var root=Files.createTempDirectory("native-render-test-");var replay=root.resolve("test.momenton");
+    var root=Files.createTempDirectory("native-render-test-");var replay=root.resolve("test.reflash");
     try(var z=new ZipOutputStream(Files.newOutputStream(replay))){z.putNextEntry(new ZipEntry("metadata.json"));z.write("{\"durationTicks\":200}".getBytes(StandardCharsets.UTF_8));z.closeEntry();}
     int[] fb=NativeReplayExporter.framebuffer(net.minecraft.client.Minecraft.getInstance());
     if(fb==null||fb[0]!=1600||fb[1]!=900)throw new AssertionError("window dimensions");
