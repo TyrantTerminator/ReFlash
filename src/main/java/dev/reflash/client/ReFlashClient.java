@@ -4,6 +4,7 @@ import com.mojang.blaze3d.platform.InputConstants;
 import dev.reflash.core.Preferences;
 import dev.reflash.core.PerformanceSampler;
 import dev.reflash.core.RecordingSaveMonitor;
+import dev.reflash.core.RecordingSessionDiagnostics;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
@@ -28,6 +29,7 @@ public final class ReFlashClient implements ClientModInitializer {
     private static KeyMapping managerBinding;
     private static final PerformanceSampler FPS_METER = new PerformanceSampler();
     private static RecordingSaveMonitor SAVE_MONITOR;
+    private static RecordingSessionDiagnostics SESSION_DIAGNOSTICS;
     private static int saveCheckTicks;
     private static boolean previousRecording;
     private static long recordingStartedNanos;
@@ -70,9 +72,11 @@ public final class ReFlashClient implements ClientModInitializer {
             if(recordingCached)lastCapturedTicks=recordingTicksCached;
             if(SAVE_MONITOR!=null){
                 if(recordingCached){
+                    if(SESSION_DIAGNOSTICS!=null)SESSION_DIAGNOSTICS.started();
                     SAVE_MONITOR.clear();SAVE_MONITOR.arm();
                     recordingStartedNanos=System.nanoTime();lastCapturedTicks=0;
                 } else {
+                    if(SESSION_DIAGNOSTICS!=null)SESSION_DIAGNOSTICS.stopped(gameTicksBeforeStop,true,false);
                     SAVE_MONITOR.expectTicks(gameTicksBeforeStop);
                     SAVE_MONITOR.begin();
                     warnAboutPausedWorld(gameTicksBeforeStop);
@@ -136,6 +140,7 @@ public final class ReFlashClient implements ClientModInitializer {
             ReFlashReplayBridge.setMicEnabled(false);
         }
         SAVE_MONITOR=new RecordingSaveMonitor(ReFlashReplayBridge.replayFolder(FabricLoader.getInstance().getGameDir()));
+        SESSION_DIAGNOSTICS=new RecordingSessionDiagnostics(FabricLoader.getInstance().getGameDir().resolve("reflash/diagnostics/recording-events.tsv"));
         EmbeddedReplayRuntime.bootstrap();
         ReFlashPauseMenu.install();
         HudElementRegistry.addLast(Identifier.fromNamespaceAndPath("reflash", "recording_indicator"),
@@ -167,10 +172,12 @@ public final class ReFlashClient implements ClientModInitializer {
             if(recordingCached)lastCapturedTicks=recordingTicksCached;
             if(SAVE_MONITOR!=null){
                 if(recordingCached&&!previousRecording){
+                    if(SESSION_DIAGNOSTICS!=null)SESSION_DIAGNOSTICS.started();
                     SAVE_MONITOR.clear();SAVE_MONITOR.arm();
                     recordingStartedNanos=System.nanoTime();lastCapturedTicks=recordingTicksCached;
                 }
                 if(!recordingCached&&previousRecording){
+                    if(SESSION_DIAGNOSTICS!=null)SESSION_DIAGNOSTICS.stopped(lastCapturedTicks,false,client.level==null || client.player==null);
                     SAVE_MONITOR.expectTicks(lastCapturedTicks);
                     SAVE_MONITOR.begin();warnAboutPausedWorld(lastCapturedTicks);
                     notifyPlayer("Replay stopped; waiting for save confirmation");
@@ -180,10 +187,14 @@ public final class ReFlashClient implements ClientModInitializer {
                     saveCheckTicks=0;
                     var state=SAVE_MONITOR.check();
                     if(state==RecordingSaveMonitor.State.SAVED){
+                        if(SESSION_DIAGNOSTICS!=null)SESSION_DIAGNOSTICS.saveResult(SAVE_MONITOR.savedTicks(),SAVE_MONITOR.shortened()?"SHORTENED":"SAVED");
                         if(SAVE_MONITOR.shortened())notifyPlayer("Replay unexpectedly shorter than recorded ticks. Check latest.log");
                         else notifyPlayer(String.format(java.util.Locale.ROOT,"Replay saved: %.1fs of game time",SAVE_MONITOR.savedTicks()/20.0));
                     }
-                    if(state==RecordingSaveMonitor.State.UNCONFIRMED)notifyPlayer("Save not confirmed. Inspect ReFlash replays and latest.log");
+                    if(state==RecordingSaveMonitor.State.UNCONFIRMED){
+                        if(SESSION_DIAGNOSTICS!=null)SESSION_DIAGNOSTICS.saveResult(0,"UNCONFIRMED");
+                        notifyPlayer("Save unconfirmed. See reflash/diagnostics/recording-events.tsv");
+                    }
                 }
             }
             while (managerBinding.consumeClick()) {

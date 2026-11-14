@@ -12,3 +12,10 @@
 - Checked the structure of the previous v0.11.0 integrated engine JAR. Full v0.11.1 Fabric JAR not built or launched in Minecraft here.
 - No claim that 7-second truncated recordings, the original replay engine or Vulkan video export are fully fixed: tester did not supply the saved .reflash archive or latest.log. Those require an actual world recording/export test.
 - This is a **source build candidate**, not a ready-to-install mod. Do not replace v0.11.0 until GitHub build passes.
+
+## Additional tester diagnostics and CI fix (November 14)
+- `RecordingSessionDiagnostics` records manual stop, unexpected stop, disconnect, recorded ticks, wall-clock duration, shortened archive and unconfirmed saves to `reflash/diagnostics/recording-events.tsv`. It does not log private voice, conversations, server names or chat.
+- Fixed CI release verifier reading an obsolete hard-coded `0.11.0` version even though the valid built artifact is `0.11.1`. The verifier now derives its expected version from `gradle.properties`.
+- Regression tests for diagnostics cover nine events across manual, spontaneous and disconnect outcomes.
+- **No speech transcript has been verified from the tester video**. Visual issues and actual GitHub logs were inspected.
+- Still requires compiled-v0.11.1 Fabric and real-world Vulkan recording/playback test; short captures are not conclusively fixed.

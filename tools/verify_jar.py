@@ -3,7 +3,12 @@
 from pathlib import Path
 from zipfile import ZipFile, BadZipFile
 import json, sys, hashlib, io
-VERSION = '0.11.0-vulkan-alpha'
+# Read the exact version used to generate fabric.mod.json, instead of hard-coding
+# a prior release number and rejecting otherwise-correct builds.
+props = (Path(__file__).resolve().parents[1] / 'gradle.properties').read_text()
+VERSION = next((line.partition('=')[2].strip() for line in props.splitlines()
+                if line.startswith('mod_version=')), None)
+if not VERSION: raise SystemExit('FAIL: mod_version is missing from gradle.properties')
 REQUIRED = ('dev/reflash/client/ReFlashClient.class',
             'dev/reflash/client/StudioTheme.class',
             'dev/reflash/client/ReFlashPauseMenu.class',
@@ -13,6 +18,7 @@ REQUIRED = ('dev/reflash/client/ReFlashClient.class',
             'dev/reflash/core/ReplayProject.class',
             'dev/reflash/core/EditorTimeline.class',
             'dev/reflash/core/RecordingSaveMonitor.class',
+            'dev/reflash/core/RecordingSessionDiagnostics.class',
             'dev/reflash/core/VideoExportLibrary.class',
             'dev/reflash/core/MicrophoneProbe.class',
             'dev/reflash/core/DiagnosticsReport.class',

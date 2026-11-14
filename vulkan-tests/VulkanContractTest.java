@@ -51,7 +51,9 @@ public class VulkanContractTest {
     var restored=new Preferences(dir.resolve("preferences.properties"));restored.load();
     check(restored.hudPosition()==Preferences.HudPosition.TOP_LEFT,"HUD position persistence");
     check(restored.outputWidth()==3840&&restored.outputFps()==240,"4K240 settings persistence");
-    Files.deleteIfExists(Path.of("reflash/bookmarks.tsv"));Files.deleteIfExists(Path.of("reflash/recordings"));Files.deleteIfExists(Path.of("reflash"));
+    Files.deleteIfExists(Path.of("reflash/bookmarks.tsv"));Files.deleteIfExists(Path.of("reflash/recordings"));
+    Files.deleteIfExists(Path.of("reflash/diagnostics/recording-events.tsv"));
+    Files.deleteIfExists(Path.of("reflash/diagnostics"));Files.deleteIfExists(Path.of("reflash"));
     System.out.println("PASS: ReFlash integrated replay, bookmark, replay, browser, editor, export, Vulkan output guard, replay index");
   }
 }

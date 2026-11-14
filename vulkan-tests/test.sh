@@ -15,7 +15,7 @@ javac --release 21 -d build/vulkan-contract \
   $fakefiles $clientfakefiles \
   $(find vulkan-tests/fakes -name '*.java') \
   $(find src/main/java -name '*.java') \
-  vulkan-tests/VulkanContractTest.java vulkan-tests/VulkanClientContractTest.java vulkan-tests/VulkanVisualContractTest.java vulkan-tests/ReplayProjectTest.java vulkan-tests/ReplayDurationTest.java vulkan-tests/UpscaleProfileTest.java vulkan-tests/ExportPresetChooserTest.java vulkan-tests/EditorTimelineTest.java vulkan-tests/VideoExportLibraryTest.java vulkan-tests/NativeRenderTest.java vulkan-tests/ExportSkinRoutingTest.java vulkan-tests/RecordingSaveMonitorTest.java vulkan-tests/AudioLevelTest.java vulkan-tests/PerformanceBenchmarkTest.java vulkan-tests/InteractiveBoundsTest.java vulkan-tests/TesterVideoRegressionTest.java vulkan-tests/DiagnosticsReportTest.java vulkan-tests/LegacyReplayImporterTest.java
+  vulkan-tests/VulkanContractTest.java vulkan-tests/VulkanClientContractTest.java vulkan-tests/VulkanVisualContractTest.java vulkan-tests/ReplayProjectTest.java vulkan-tests/ReplayDurationTest.java vulkan-tests/UpscaleProfileTest.java vulkan-tests/ExportPresetChooserTest.java vulkan-tests/EditorTimelineTest.java vulkan-tests/VideoExportLibraryTest.java vulkan-tests/NativeRenderTest.java vulkan-tests/ExportSkinRoutingTest.java vulkan-tests/RecordingSaveMonitorTest.java vulkan-tests/RecordingSessionDiagnosticsTest.java vulkan-tests/AudioLevelTest.java vulkan-tests/PerformanceBenchmarkTest.java vulkan-tests/InteractiveBoundsTest.java vulkan-tests/TesterVideoRegressionTest.java vulkan-tests/DiagnosticsReportTest.java vulkan-tests/LegacyReplayImporterTest.java
 java -Djava.awt.headless=true -cp build/vulkan-contract ReplayProjectTest
 java -Djava.awt.headless=true -cp build/vulkan-contract ReplayDurationTest
 java -Djava.awt.headless=true -cp build/vulkan-contract ExportPresetChooserTest
@@ -25,6 +25,7 @@ java -Djava.awt.headless=true -cp build/vulkan-contract VideoExportLibraryTest
 java -Djava.awt.headless=true -cp build/vulkan-contract NativeRenderTest
 java -Djava.awt.headless=true -cp build/vulkan-contract ExportSkinRoutingTest
 java -Djava.awt.headless=true -cp build/vulkan-contract RecordingSaveMonitorTest
+java -Djava.awt.headless=true -cp build/vulkan-contract RecordingSessionDiagnosticsTest
 java -Djava.awt.headless=true -cp build/vulkan-contract AudioLevelTest
 java -Djava.awt.headless=true -cp build/vulkan-contract PerformanceBenchmarkTest
 java -Djava.awt.headless=true -cp build/vulkan-contract dev.reflash.client.InteractiveBoundsTest
