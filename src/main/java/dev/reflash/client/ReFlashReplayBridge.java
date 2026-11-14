@@ -128,7 +128,8 @@ public final class ReFlashReplayBridge {
                 ReFlashClient.notifyPlayer("Recorder did not change state. Check latest.log.");
                 return false;
             }
-            ReFlashClient.notifyPlayer(after ? "Replay recording started (Vulkan-safe)." : "Replay recording stopped and saving.");
+            // ReFlashClient owns state notifications and save confirmation.
+            // Avoid duplicate/triple status toasts from the bridge, client and GUI.
             return true;
         } catch (ReflectiveOperationException | LinkageError | RuntimeException ex) {
             ReFlashClient.notifyPlayer("ReFlash recorder failed. Check latest.log.");

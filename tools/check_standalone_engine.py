@@ -66,6 +66,9 @@ def check(path):
         original_mod = utf8_constants(jar.read('com/relapzz/momenton/Momenton.class'))
         assert b'reflash' in original_mod, 'Integrated engine still uses old namespace'
         assert b'momenton' not in original_mod, 'Legacy namespace still active'
+        for size in (35,37):
+            name = f'assets/reflash/textures/gui/reflash_mark_{size}.png'
+            assert name in names, f'Corrected no-repeat logo missing: {name}'
         assert 'META-INF/jars/momenton-1.0.0.jar' not in names, 'Nested dependency remains'
         print(f'PASS: one ReFlash mod, {len(engine)} integrated engine classes, replay extension and config patched')
         print('CHECK LIMIT: Minecraft/Vulkan launch, recording, playback and video export not tested')

@@ -1,0 +1,18 @@
+ReFlash v0.11.0 approved standalone candidate — verification summary
+
+PASS: All existing offline Java integration and UI tests (see local test run).
+PASS: Pure Java clip/timeline/replay/preset/FFmpeg contract tests.
+PASS: Single-mod source config: one Fabric ID, no nested or external Momenton dependency.
+PASS: Standalone engine merge tested structurally with a synthetic test archive.
+PASS: 151 engine classes merged from pinned Momenton v1.0.0; namespaces and file suffix verified.
+PASS: Pinned upstream Momenton 1.0.0 JAR SHA-256 matches known checksum.
+PASS: Production workflow contains checks for actual merged-engine bytecode and mixins.
+
+UNVERIFIED: The actual v0.11.0 Fabric Loom compilation/remap (Gradle/Maven cannot download here).
+UNVERIFIED: Minecraft 1.21.11 + VulkanMod launch.
+UNVERIFIED: New .reflash recording/save/playback/export in real Minecraft.
+UNVERIFIED: Exact in-game visuals and animations; only source-rendered approvals exist.
+
+NOT IMPLEMENTED: Native offscreen 4K Vulkan rendering, Windows system-audio capture.
+
+WARNING: The tests used simulated Minecraft API classes. This ZIP IS NOT A MOD JAR.

@@ -11,7 +11,12 @@ import net.minecraft.resources.Identifier;
  * The only texture displayed inside the live editor is Minecraft's already-rendered world.
  */
 public final class StudioTheme {
-    private static final Identifier LOGO = Identifier.fromNamespaceAndPath("reflash", "textures/gui/reflash_mark_24.png");
+    // Each GUI texture is the exact size rendered. Minecraft's short blit overload
+    // uses the drawn size as the source UV region: drawing 37px from a 24px
+    // texture wraps the UVs and duplicates the logo, as seen in the tester video.
+    private static final Identifier LOGO_37 = Identifier.fromNamespaceAndPath("reflash", "textures/gui/reflash_mark_37.png");
+    private static final Identifier LOGO_35 = Identifier.fromNamespaceAndPath("reflash", "textures/gui/reflash_mark_35.png");
+    private static final Identifier LOGO_24 = Identifier.fromNamespaceAndPath("reflash", "textures/gui/reflash_mark_24.png");
     private static final Identifier MINI_LOGO = Identifier.fromNamespaceAndPath("reflash", "textures/gui/reflash_button.png");
     private static final Identifier LANDSCAPE = Identifier.fromNamespaceAndPath("reflash", "textures/gui/studio_landscape.png");
     private StudioTheme() { }
@@ -122,7 +127,12 @@ public final class StudioTheme {
     }
     /** Branding is a bundled 256px texture. Drawn only when a GUI is open. */
     public static void logo(GuiGraphics g, int x, int y, int size) {
-        if (size > 0) g.blit(RenderPipelines.GUI_TEXTURED, LOGO, x, y, 0, 0, size, size, 24, 24);
+        if (size <= 0) return;
+        // Do not request more UV pixels than the source texture has.
+        // Header uses 37px; export progress uses 35px.
+        if (size == 37) g.blit(RenderPipelines.GUI_TEXTURED, LOGO_37, x, y, 0, 0, 37, 37, 37, 37);
+        else if (size == 35) g.blit(RenderPipelines.GUI_TEXTURED, LOGO_35, x, y, 0, 0, 35, 35, 35, 35);
+        else g.blit(RenderPipelines.GUI_TEXTURED, LOGO_24, x, y, 0, 0, 24, 24, 24, 24);
     }
     public static void tinyLogo(GuiGraphics g, int x, int y) {
         g.blit(RenderPipelines.GUI_TEXTURED, MINI_LOGO, x, y, 0, 0, 16, 16, 16, 16);

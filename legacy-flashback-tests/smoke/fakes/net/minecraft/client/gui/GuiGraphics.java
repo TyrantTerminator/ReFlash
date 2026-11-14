@@ -51,11 +51,16 @@ public class GuiGraphics {
         String which=String.valueOf(texture);
         BufferedImage art;
         if(which.contains("reflash_button")) art=ImageIO.read(Path.of("src/main/resources/assets/reflash/textures/gui/reflash_button.png").toFile());
+        else if(which.contains("reflash_mark_37"))art=ImageIO.read(Path.of("src/main/resources/assets/reflash/textures/gui/reflash_mark_37.png").toFile());
+        else if(which.contains("reflash_mark_35"))art=ImageIO.read(Path.of("src/main/resources/assets/reflash/textures/gui/reflash_mark_35.png").toFile());
+        else if(which.contains("reflash_mark_24"))art=ImageIO.read(Path.of("src/main/resources/assets/reflash/textures/gui/reflash_mark_24.png").toFile());
         else if(which.contains("reflash_mark"))art=ImageIO.read(Path.of("src/main/resources/assets/reflash/textures/gui/reflash_mark.png").toFile());
         else { if(studioArt==null)studioArt=ImageIO.read(Path.of("src/main/resources/assets/reflash/textures/gui/studio_landscape.png").toFile()); art=studioArt; }
         Graphics2D gg=image.createGraphics();
         gg.setRenderingHint(RenderingHints.KEY_INTERPOLATION,RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-        gg.drawImage(art,x,y,w,h,null);
+        // Match Minecraft's short blit overload: draw dimensions also define UV
+        // sample dimensions. Old Studio attempted 37px from a 24px texture.
+        gg.drawImage(art,x,y,x+w,y+h,(int)u,(int)v,(int)u+w,(int)v+h,null);
         gg.dispose();
       } catch(Exception ex){ fill(x,y,x+w,y+h,0xFF282540); }
   }

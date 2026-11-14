@@ -1,0 +1,31 @@
+ReFlash v0.11.0 — APPROVED UI / STANDALONE ENGINE BUILD CANDIDATE
+
+This is SOURCE, not an installable Minecraft JAR.
+One Windows batch file is provided: BUILD-APPROVED-REFLASH.bat.
+The previous batch scripts are intentionally omitted to avoid confusion.
+
+The batch file clones your existing TyrantTerminator/ReFlash GitHub repo,
+updates the source and GitHub Actions workflow, commits, and pushes to main.
+It opens https://github.com/TyrantTerminator/ReFlash/actions.
+The CI workflow performs offline tests, builds a remapped Fabric JAR with
+Java 25 / Gradle 9.7, integrates the pinned Momenton-derived engine into one
+ReFlash mod, verifies the JAR and uploads a release candidate artifact.
+
+If that build succeeds you can download the JAR from the GitHub Actions run.
+The first actual Minecraft 1.21.11 + VulkanMod runtime test has NOT happened.
+Do NOT replace your working JAR until a production artifact exists, and BACK
+UP your old Momenton recordings before trying the format migration.
+
+One ReFlash mod is intended. Momenton is still the upstream GPL-derived engine;
+it is modified and integrated, NOT a new clean-room replay implementation.
+The engine keeps its original Java package as an internal implementation detail.
+No separately installed Momenton should be used in this target release.
+
+Included: Approved v0.11 UI with animated selector and resolution/FPS/quality
+preset chips, size estimates, video folder access, source/editor/export pages,
+standalone engine merge logic, GPL notices, original upstream source archive,
+and reproducible offline tests.
+
+Constraints: Native offscreen Vulkan 4K rendering is NOT implemented. The
+upscaling settings affect video postprocessing and estimates are approximate.
+System audio capture is NOT implemented. Actual engine runtime is unverified.

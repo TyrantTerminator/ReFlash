@@ -71,6 +71,7 @@ public final class ReFlashScreen extends Screen {
     private int selectedVideo=-1,videoScroll=0;
     private String libraryError = "", notice = "";
     private int noticeTicks;
+    private dev.reflash.core.RecordingSaveMonitor.State lastSaveUiState;
     // Lightweight UI-only easing; no extra textures, shaders or gameplay hooks.
     private int pageRevealTicks=14;
     private final Map<Button,Float> hoverEase=new IdentityHashMap<>();
@@ -158,6 +159,13 @@ public final class ReFlashScreen extends Screen {
         if(w<12||h<12||x<0||y<0||x+w>width||y+h>height)return;
         Button b=Button.builder(Component.literal(s.get()), ignored->action.run()).bounds(x,y,w,h).build();
         b.setAlpha(0f);
+        // A recording cannot start from the title screen or an unloaded world.
+        // Keep the shortcut visible while making its unavailable state obvious.
+        if ("Saving...".equals(s.get()) ||
+                ("Start Recording".equals(s.get()) && !ReFlashReplayBridge.isRecording() &&
+                (minecraft == null || minecraft.level == null || minecraft.player == null))) {
+            b.active = false;
+        }
         addRenderableWidget(b);
         controls.add(new Control(b,s,skin,selected,icon));
     }
@@ -199,7 +207,8 @@ public final class ReFlashScreen extends Screen {
         int gap=8;
         int buttonCount=w>=435?3:2;
         int bw=Math.max(75,(w-34-gap*(buttonCount-1))/buttonCount);
-        add(x+15,ay,bw,28,()->ReFlashReplayBridge.isRecording()?"Stop & Save":"Start Recording",
+        add(x+15,ay,bw,28,()->ReFlashReplayBridge.isRecording()?"Stop & Save":
+                        ReFlashClient.saveState()==dev.reflash.core.RecordingSaveMonitor.State.SAVING?"Saving...":"Start Recording",
                 ReFlashReplayBridge.isRecording()?Skin.DANGER:Skin.PRIMARY,false,"record",()->{
             boolean was=ReFlashReplayBridge.isRecording();
             if (ReFlashClient.toggleRecording(minecraft)) {
@@ -227,22 +236,23 @@ public final class ReFlashScreen extends Screen {
     }
     private int libRowH(){return layout.contentHeight()>=320?65:layout.contentHeight()>185?41:28;}
     private int libRows(){
-        int avail=layout.contentHeight()-(layout.ultraCompact()?69:110);
+        // Reserve the library heading, separate action toolbar and footer.
+        int avail=layout.contentHeight()-(layout.ultraCompact()?69:144);
         return Math.max(1,Math.min(6,avail/(libRowH()+7)));
     }
     private void initLibrary(){
         int x=layout.contentX(),y=layout.contentY(),w=layout.contentWidth(),h=layout.contentHeight();
         boolean wide=w>=435;
         int listW=wide?w*58/100:w;
-        if(!layout.ultraCompact())add(x+Math.max(0,listW-87),y+6,83,24,()->"Refresh",Skin.QUIET,false,"spark",()->{refreshLibrary();rebuildWidgets();});
-        if(!layout.ultraCompact()&&listW>=240)add(x+8,y+6,132,24,()->"Import Old Replays",Skin.QUIET,false,"library",()->{
+        if(!layout.ultraCompact())add(x+Math.max(0,listW-87),y+40,83,24,()->"Refresh",Skin.QUIET,false,"spark",()->{refreshLibrary();rebuildWidgets();});
+        if(!layout.ultraCompact()&&listW>=240)add(x+8,y+40,132,24,()->"Import Old",Skin.QUIET,false,"library",()->{
             try {
                 var imported=dev.reflash.core.LegacyReplayImporter.importRecordings(FabricLoader.getInstance().getGameDir());
                 notice("Imported "+imported.imported()+" old recordings ("+imported.invalid()+" invalid)");
                 refreshLibrary();rebuildWidgets();
             }catch(IOException e){notice("Old recordings import failed: "+e.getMessage());}
         });
-        int startY=y+(layout.ultraCompact()?23:46),rh=libRowH();
+        int startY=y+(layout.ultraCompact()?23:74),rh=libRowH();
         for(int i=0;i<libRows();i++){
             int index=replayOffset+i;
             if(index>=replayList.size())break;
@@ -596,10 +606,16 @@ public final class ReFlashScreen extends Screen {
     }
     private void refreshLibrary(){
         try{
+            Path selectedPath=selectedReplay>=0&&selectedReplay<replayList.size()?replayList.get(selectedReplay).path():null;
             replayList=ReplayIndex.recent(replayFolder(),128);libraryError="";
-            if(selectedReplay>=replayList.size()||selectedReplay<0)
+            if(selectedPath!=null){
+                int keep=-1;
+                for(int i=0;i<replayList.size();i++)if(replayList.get(i).path().equals(selectedPath)){keep=i;break;}
+                selectedReplay=keep>=0?keep:(replayList.isEmpty()?-1:0);
+            }else if(selectedReplay>=replayList.size()||selectedReplay<0){
                 selectedReplay=replayList.isEmpty()?-1:0;
-            replayOffset=0;
+            }
+            if(replayOffset>=replayList.size())replayOffset=0;
             inspectSelectedReplay();
         }catch(IOException e){replayList=List.of();libraryError="Could not read replay files";selectedReplay=-1;selectedInfo=null;}
     }
@@ -631,6 +647,20 @@ public final class ReFlashScreen extends Screen {
     private void notice(String message){notice=message;noticeTicks=100;}
     @Override public void tick(){
         screenTicks++;pageRevealTicks=Math.min(16,pageRevealTicks+1);presetPulseTicks=Math.min(18,presetPulseTicks+1);if(noticeTicks>0)noticeTicks--;
+        // A completed replay is written asynchronously. A Studio opened before it
+        // saved must refresh rather than keep showing 0 replays indefinitely.
+        // At 1 check / 2 seconds this never touches the gameplay render path.
+        var saveState=ReFlashClient.saveState();
+        if(saveState!=lastSaveUiState){
+            lastSaveUiState=saveState;
+            if(page==Page.CAPTURE)rebuildWidgets();
+        }
+        if((page==Page.CAPTURE || page==Page.LIBRARY) && screenTicks%40==0 &&
+                !ReFlashReplayBridge.isRecording()){
+            List<String> previous=replayList.stream().map(ReplayIndex.Replay::fileName).toList();
+            refreshLibrary();
+            if(!previous.equals(replayList.stream().map(ReplayIndex.Replay::fileName).toList()))rebuildWidgets();
+        }
         if(page==Page.EDITOR&&editingProject!=null&&editingProject.dirty()&&++editIdleTicks>=160){
             savePendingEdits();editIdleTicks=0;
         }
@@ -682,7 +712,10 @@ public final class ReFlashScreen extends Screen {
         StudioTheme.label(g,font,"MANAGER",x+107,y+14,StudioTheme.PURPLE);
         StudioTheme.label(g,font,"VULKAN  /  REPLAY  /  CREATE",x+50,y+31,StudioTheme.MUTED);
         if(w>=660){
-            String status=ReFlashReplayBridge.isRecording()?"RECORDING":ReFlashReplayBridge.isInReplay()?"REPLAY LOADED":"CAPTURE READY";
+            String status=ReFlashReplayBridge.isRecording()?"RECORDING":
+                    ReFlashClient.saveState()==dev.reflash.core.RecordingSaveMonitor.State.SAVING?"SAVING REPLAY":
+                    ReFlashReplayBridge.isInReplay()?"REPLAY LOADED":
+                    minecraft==null||minecraft.level==null?"JOIN A WORLD":"CAPTURE READY";
             StudioTheme.chip(g,font,status,x+w-172,y+19,119,ReFlashReplayBridge.isRecording()?StudioTheme.RED:StudioTheme.GREEN);
         }
         if(layout.sideNav()){
@@ -698,7 +731,7 @@ public final class ReFlashScreen extends Screen {
                 StudioTheme.label(g,font,"MANAGER: " + ReFlashClient.managerKeyName(),x+20,y+h-48,StudioTheme.SOFT);
             }
         }
-        StudioTheme.label(g,font,"v0.11.0 UI PREVIEW / FABRIC 1.21.11",x+w-174,y+h-16,StudioTheme.SOFT);
+        StudioTheme.label(g,font,"REFLASH 0.11.1 / FABRIC 1.21.11",x+w-162,y+h-16,StudioTheme.SOFT);
     }
     private void heading(GuiGraphics g,String title,String subtitle,int x,int y){
         StudioTheme.label(g,font,title,x+2,y+5,StudioTheme.TEXT);
@@ -713,7 +746,11 @@ public final class ReFlashScreen extends Screen {
         StudioTheme.sceneArt(g,x+2,heroY+2,w-4,heroH-4,false);
         StudioTheme.rect(g,x+2,heroY+2,w*52/100,heroH-4,0xCC10152A);
         StudioTheme.rect(g,x+2,heroY+2,4,heroH-4,StudioTheme.PURPLE);
-        StudioTheme.label(g,font,ReFlashReplayBridge.isRecording()?"RECORDING IN PROGRESS":"LIGHTWEIGHT REPLAY CAPTURE",x+18,heroY+17,ReFlashReplayBridge.isRecording()?StudioTheme.RED:StudioTheme.CYAN);
+        boolean canCapture=minecraft!=null && minecraft.level!=null && minecraft.player!=null;
+        String captureState=ReFlashReplayBridge.isRecording()?"RECORDING IN PROGRESS":
+                canCapture?"LIGHTWEIGHT REPLAY CAPTURE":"JOIN A WORLD TO START RECORDING";
+        StudioTheme.label(g,font,fit(captureState,w/2-10),x+18,heroY+17,
+                ReFlashReplayBridge.isRecording()?StudioTheme.RED:canCapture?StudioTheme.CYAN:StudioTheme.AMBER);
         if(heroH>105){
             StudioTheme.label(g,font,"Record. Replay. Create.",x+18,heroY+46,StudioTheme.TEXT);
             StudioTheme.label(g,font,fit("State replay instead of gameplay video encoding",w/2-12),x+18,heroY+68,StudioTheme.MUTED);
@@ -764,7 +801,7 @@ public final class ReFlashScreen extends Screen {
         int x=layout.contentX(),y=layout.contentY(),w=layout.contentWidth(),h=layout.contentHeight();
         boolean wide=w>=435;int listW=wide?w*58/100:w;
         heading(g,"Replay Library",replayList.size()+" saved recordings  /  local Vulkan-compatible replay files",x,y);
-        int top=y+(layout.ultraCompact()?23:46),rh=libRowH();
+        int top=y+(layout.ultraCompact()?23:74),rh=libRowH();
         if(!libraryError.isEmpty())StudioTheme.label(g,font,libraryError,x+12,top+10,StudioTheme.RED);
         else if(replayList.isEmpty()){
             StudioTheme.softPanel(g,x+2,top,listW-4,Math.max(40,h-(top-y)-48));
@@ -899,7 +936,7 @@ public final class ReFlashScreen extends Screen {
 
     private void drawControl(GuiGraphics g,Control c){
         Button b=c.widget();if(!b.visible||c.skin()==Skin.TIMELINE)return;
-        int x=b.getX(),y=b.getY(),w=b.getWidth(),h=b.getHeight();boolean hot=b.isHoveredOrFocused();
+        int x=b.getX(),y=b.getY(),w=b.getWidth(),h=b.getHeight();boolean hot=b.active&&b.isHoveredOrFocused();
         float eased=hoverEase.getOrDefault(b,0f);
         eased=Math.clamp(eased+(hot?0.22f:-0.22f),0f,1f);
         hoverEase.put(b,eased);
@@ -914,7 +951,10 @@ public final class ReFlashScreen extends Screen {
             case SECONDARY->{fill=hot?StudioTheme.PANEL_HOVER:StudioTheme.PANEL_ALT;textColor=StudioTheme.TEXT;stroke=hot?StudioTheme.CYAN:StudioTheme.BORDER;}
             default->{fill=hot?StudioTheme.PANEL_HOVER:StudioTheme.PANEL;textColor=StudioTheme.MUTED;stroke=hot?StudioTheme.CYAN:fill;}
         }
-        if(c.skin()!=Skin.NAV && c.skin()!=Skin.TIMELINE && c.skin()!=Skin.DANGER) {
+        if(!b.active){
+            fill=StudioTheme.PANEL;textColor=StudioTheme.SOFT;stroke=StudioTheme.BORDER;
+        }
+        if(c.skin()!=Skin.NAV && c.skin()!=Skin.TIMELINE && c.skin()!=Skin.DANGER && b.active) {
             fill=StudioTheme.mix(fill,StudioTheme.PANEL_HOVER,eased*0.34f);
         }
         StudioTheme.rounded(g,x,y,w,h,fill);

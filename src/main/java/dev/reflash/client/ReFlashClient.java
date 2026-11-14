@@ -54,10 +54,18 @@ public final class ReFlashClient implements ClientModInitializer {
     /** The only ReFlash-controlled recording action: hotkey and Manager use this same path. */
     public static boolean toggleRecording(Minecraft client) {
         boolean wasRecording=ReFlashReplayBridge.isRecording();
+        // The engine finalises replay ZIPs asynchronously; a new take must not
+        // begin while the previous output is still being written.
+        if(!wasRecording && SAVE_MONITOR!=null &&
+                SAVE_MONITOR.state()==RecordingSaveMonitor.State.SAVING){
+            notifyPlayer("Previous replay is still saving. Check Library shortly.");
+            return false;
+        }
         int gameTicksBeforeStop=wasRecording?ReFlashReplayBridge.recordingTicks():0;
         boolean ok = ReFlashReplayBridge.toggleRecording(client);
         if (ok) {
             recordingCached = ReFlashReplayBridge.isRecording();
+            notifyPlayer(recordingCached?"Recording started":"Recording stopped — saving replay...");
             recordingTicksCached = recordingCached ? ReFlashReplayBridge.recordingTicks() : 0;
             if(recordingCached)lastCapturedTicks=recordingTicksCached;
             if(SAVE_MONITOR!=null){
