@@ -3,6 +3,8 @@ import dev.reflash.client.ReFlashScreen;
 import net.minecraft.client.gui.GuiGraphics;
 public class VulkanVisualContractTest {
   public static void main(String[] args){
+    // Visual test initializes preferences like the actual Fabric client.
+    new ReFlashClient().onInitializeClient();
     for(int[] dim:new int[][]{{1280,720},{960,540},{854,480},{640,360},{480,270},{320,240}}){
       ReFlashScreen s =new ReFlashScreen(null);s.width=dim[0];s.height=dim[1];s.init();
       GuiGraphics g=new GuiGraphics(dim[0],dim[1]);s.render(g,0,0,0);
