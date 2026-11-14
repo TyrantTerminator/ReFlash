@@ -36,15 +36,17 @@ public final class ReFlashReplayBridge {
     }
 
     public static void onClientTick(Minecraft client) {
-        if (studioEditorOrigin!=null && client.screen!=null &&
-                client.screen.getClass().getName().equals(BASE+"ui.ExportScreen")) {
-            // User pressed Export in the ReFlash engine replay editor reached through ReFlash:
-            // return to the existing custom ReFlash Export Studio, preserving selection.
+        if(client.screen!=null && client.screen.getClass().getName().equals(BASE+"ui.ExportScreen")){
+            // Standalone ReFlash must never expose the legacy engine export form.
+            // Preserve the current replay, even if its native editor initiated Export.
+            Path activeReplay=null;
+            try{ activeReplay=(Path)call("playback.ReplaySession","file",new Class<?>[0]); }
+            catch(ReflectiveOperationException|LinkageError|RuntimeException ignored){}
             ReFlashScreen studio=studioEditorOrigin;
-            studioEditorOrigin=null;
-            editQueueTicks=0;
-            client.setScreen(studio);
-            studio.openExportTab();
+            studioEditorOrigin=null; editQueueTicks=0;
+            if(studio!=null){client.setScreen(studio);studio.openExportTab();}
+            // Never retain the legacy form as parent: Close would otherwise reopen it.
+            else client.setScreen(ReFlashScreen.exporting(null,activeReplay));
             return;
         }
         if (editQueueTicks <= 0) return;

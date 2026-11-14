@@ -46,8 +46,9 @@ public final class ReFlashScreen extends Screen {
     private enum ExportView { PRESETS, VIDEOS }
     private enum CompactPresetGroup { RESOLUTION, FRAME_RATE, QUALITY }
     private ExportView exportView = ExportView.PRESETS;
-    private CompactPresetGroup compactPresetGroup = CompactPresetGroup.RESOLUTION;
+    private CompactPresetGroup compactPresetGroup = CompactPresetGroup.FRAME_RATE;
     private int presetPulseTicks = 18;
+    private Path requestedReplayPath;
     private SettingsTab settingsTab=SettingsTab.RECORDING;
     private enum Skin { PRIMARY, SECONDARY, QUIET, DANGER, NAV, ROW, TOGGLE, TIMELINE, SELECTOR }
     private record Control(Button widget, Supplier<String> caption, Skin skin, boolean selected, String icon) { }
@@ -78,6 +79,11 @@ public final class ReFlashScreen extends Screen {
 
     public ReFlashScreen(Screen parent){super(Component.literal("ReFlash Studio"));this.parent=parent;}
     public static ReFlashScreen library(Screen parent){var s=new ReFlashScreen(parent);s.page=Page.LIBRARY;return s;}
+    /** Always opens the branded exporter, even from an engine-owned replay screen. */
+    public static ReFlashScreen exporting(Screen parent, Path replay){
+        var s=new ReFlashScreen(parent);s.page=Page.EXPORT;s.requestedReplayPath=replay;
+        return s;
+    }
     /** Keeps native replay-editor Export actions inside ReFlash's own export workspace. */
     public void openExportTab(){ selectPage(Page.EXPORT); }
     private Path replayFolder(){return ReFlashReplayBridge.replayFolder(FabricLoader.getInstance().getGameDir());}
@@ -87,6 +93,7 @@ public final class ReFlashScreen extends Screen {
         controls.clear();
         hoverEase.clear();
         if(replayList.isEmpty() && libraryError.isEmpty())refreshLibrary();
+        if(page==Page.EXPORT && editingProject==null && selectedReplay>=0)loadProject();
         int sx=layout.x(), sy=layout.y(), sw=layout.width();
         add(sx+sw-36,sy+17,24,24,()->"",Skin.QUIET,false,"close",this::onClose);
         if(layout.sideNav()){
@@ -175,17 +182,16 @@ public final class ReFlashScreen extends Screen {
     }
 
     private void editSelectedReplay() {
-        if (selectedReplay < 0 || selectedReplay >= replayList.size()) {
-            notice("Choose a recording in Library first");
-            return;
+        if(selectedReplay<0 || selectedReplay>=replayList.size()){
+            selectPage(Page.LIBRARY);notice("Choose a saved recording first");return;
         }
-        if (ReFlashReplayBridge.isRecording()) {
-            notice("Stop recording before opening the editor");
-            return;
+        if(ReFlashReplayBridge.isRecording()){
+            notice("Stop recording before editing");return;
         }
-        if (!ReFlashReplayBridge.openReplayForEditing(minecraft, replayList.get(selectedReplay).path())) {
-            notice("Could not open editor: check replay format");
-        }
+        loadProject();
+        if(editingProject==null){notice("Cannot read this replay project");return;}
+        // Editing is always ReFlash Studio. World playback is a separate Preview action.
+        selectPage(Page.EDITOR);
     }
 
     private void editLatestReplay() {
@@ -282,27 +288,42 @@ public final class ReFlashScreen extends Screen {
             });
         }
     }
+    private int editorTop(int y,int h){ return y+(h<158?23:h<260?32:46); }
+    private int editorPreviewHeight(int h){
+        if(h<158)return 31;
+        if(h<260)return 48;
+        return Math.max(64,Math.min(228,Math.min(h*46/100,h-265)));
+    }
+    private int editorTimelineHeight(int y,int h,int timelineY){
+        return Math.min(179,Math.max(28,y+h-50-timelineY));
+    }
     private void initEditor(){
         int x=layout.contentX(),y=layout.contentY(),w=layout.contentWidth(),h=layout.contentHeight();
         if(editingProject==null && selectedReplay>=0)loadProject();
-        int top=y+(layout.ultraCompact()?24:46);
-        int hero=Math.max(60,Math.min(166,h*43/100));
-        int trimY=top+hero+68;
+        int top=editorTop(y,h);
+        int hero=editorPreviewHeight(h);
+        int trimY=top+hero+99;
         if(editingProject!=null){
             int timelineY=top+hero+8;
+            int tH=editorTimelineHeight(y,h,timelineY);
             int areaW=w-30,segments=Math.max(4,Math.min(40,areaW/15));
             for(int i=0;i<segments;i++){
                 final int segment=i, count=segments;
                 int xx=x+15+segment*areaW/count;
                 int ww=Math.max(2,x+15+(segment+1)*areaW/count-xx);
-                add(xx,timelineY+23,ww,15,()->"",Skin.TIMELINE,false,"",()->{
+                add(xx,timelineY+(tH<65?25:42),ww,tH<65?15:21,()->"",Skin.TIMELINE,false,"",()->{
                     var pos=EditorTimeline.at(editingProject.clips(),areaW,
                         (segment*areaW/count)+(areaW/(count*2)));
                     selectedClip=pos.clipIndex();playheadSourceTick=pos.sourceTick();editIdleTicks=0;rebuildWidgets();
                 });
             }
         }
-        if(editingProject!=null && trimY+73<y+h-40 && w>=285){
+        if(editingProject!=null && h<260 && w>=240){
+            int quickY=top+Math.max(4,(hero-20)/2),quickW=Math.min(86,(w-145)/2);
+            add(x+w-quickW*2-13,quickY,quickW,20,()->"Split",Skin.SECONDARY,false,"",()->editClip(4));
+            add(x+w-quickW-7,quickY,quickW,20,()->"Save Cuts",Skin.PRIMARY,false,"",()->editClip(7));
+        }
+        if(editingProject!=null && trimY+58<y+h-38 && w>=285){
             int bw=Math.max(45,Math.min(100,(w-45)/4));
             add(x+12,trimY,bw,25,()->"Start -1s",Skin.SECONDARY,false,"",()->editClip(0));
             add(x+18+bw,trimY,bw,25,()->"Start +1s",Skin.SECONDARY,false,"",()->editClip(1));
@@ -323,9 +344,10 @@ public final class ReFlashScreen extends Screen {
         add(x+9,actionsY,bw,28,()->editingProject==null?"Choose Recording":"Preview Replay",Skin.PRIMARY,false,"play",()->{
             if(editingProject==null){selectPage(Page.LIBRARY);return;}
             try { editingProject.save(); }catch(IOException e){notice("Could not save project: "+e.getMessage());return;}
-            editSelectedReplay();
+            if(!ReFlashReplayBridge.openReplay(minecraft,editingProject.replayPath()))
+                notice("Cannot load replay preview; check this recording");
         });
-        if(w>=250)add(x+18+bw,actionsY,Math.min(bw,w-bw-27),28,()->"Export & Presets",Skin.SECONDARY,false,"export",()->selectPage(Page.EXPORT));
+        if(w>=250)add(x+18+bw,actionsY,Math.min(bw,w-bw-27),28,()->"Export / "+ReFlashClient.preferences().outputFps()+" FPS",Skin.SECONDARY,false,"export",()->selectPage(Page.EXPORT));
     }
 
     private static final int[][] SIZES = {{1280,720},{1920,1080},{2560,1440},{3840,2160}};
@@ -415,6 +437,8 @@ public final class ReFlashScreen extends Screen {
         add(x+2,tabsY,tabsW,24,()->"01  QUALITY & FPS",Skin.SELECTOR,exportView==ExportView.PRESETS,"",()->selectExportView(ExportView.PRESETS));
         add(x+10+tabsW,tabsY,Math.max(28,w-tabsW-12),24,()->"02  EXPORTED VIDEOS",Skin.SELECTOR,exportView==ExportView.VIDEOS,"",()->selectExportView(ExportView.VIDEOS));
         if(exportView==ExportView.PRESETS){
+            // The most important setting, FPS, must be visible first on compact screens.
+            if(h<245 && compactPresetGroup==null)compactPresetGroup=CompactPresetGroup.FRAME_RATE;
             int sy=exportChooserTop(y,h),buttonHeight=h>=340?28:Math.max(18,h>=245?24:21);
             if(h<245){
                 int groupY=tabsY+30,categoryWidth=Math.max(30,(w-16)/3);
@@ -478,7 +502,7 @@ public final class ReFlashScreen extends Screen {
     }
     private void drawExport(GuiGraphics g){
         int x=layout.contentX(),y=layout.contentY(),w=layout.contentWidth(),h=layout.contentHeight();
-        heading(g,"ReFlash Export Studio","Pick your video quality & frame rate, then render and upscale",x,y);
+        heading(g,"ReFlash Export Studio","30 / 60 / 120 / 144 / 240 FPS  •  choose your export quality",x,y);
         int tabsY=exportTabsY(y,h);
         if(exportView==ExportView.PRESETS){
             int sy=exportChooserTop(y,h);
@@ -608,6 +632,12 @@ public final class ReFlashScreen extends Screen {
         try{
             Path selectedPath=selectedReplay>=0&&selectedReplay<replayList.size()?replayList.get(selectedReplay).path():null;
             replayList=ReplayIndex.recent(replayFolder(),128);libraryError="";
+            if(requestedReplayPath!=null){
+                for(int i=0;i<replayList.size();i++)if(replayList.get(i).path().equals(requestedReplayPath)){
+                    selectedReplay=i; break;
+                }
+                requestedReplayPath=null;
+            }
             if(selectedPath!=null){
                 int keep=-1;
                 for(int i=0;i<replayList.size();i++)if(replayList.get(i).path().equals(selectedPath)){keep=i;break;}
@@ -731,7 +761,7 @@ public final class ReFlashScreen extends Screen {
                 StudioTheme.label(g,font,"MANAGER: " + ReFlashClient.managerKeyName(),x+20,y+h-48,StudioTheme.SOFT);
             }
         }
-        StudioTheme.label(g,font,"REFLASH 0.11.1 / FABRIC 1.21.11",x+w-162,y+h-16,StudioTheme.SOFT);
+        StudioTheme.label(g,font,"REFLASH 0.11.2 / FABRIC 1.21.11",x+w-162,y+h-16,StudioTheme.SOFT);
     }
     private void heading(GuiGraphics g,String title,String subtitle,int x,int y){
         StudioTheme.label(g,font,title,x+2,y+5,StudioTheme.TEXT);
@@ -843,46 +873,95 @@ public final class ReFlashScreen extends Screen {
     }
     private void drawEditor(GuiGraphics g){
         int x=layout.contentX(),y=layout.contentY(),w=layout.contentWidth(),h=layout.contentHeight();
-        heading(g,"ReFlash Clip Studio","Trim and split here; Preview loads the real Minecraft replay",x,y);
-        int top=y+(layout.ultraCompact()?24:46);
-        int hero=Math.max(60,Math.min(166,h*43/100));
-        StudioTheme.softPanel(g,x,top,w,hero);
-        StudioTheme.rounded(g,x+2,top+2,w-4,hero-4,0xFF111A2A);
-        StudioTheme.rect(g,x+2,top+2,4,hero-4,StudioTheme.PURPLE);
-        if(w>490){
-            int px=x+w*62/100;
-            StudioTheme.rounded(g,px,top+20,w*30/100,hero-40,0xFF20283B);
-            StudioTheme.icon(g,"play",px+w*14/100,top+42,StudioTheme.CYAN);
-            StudioTheme.label(g,font,"REPLAY VIEW",px+17,top+70,StudioTheme.TEXT);
-            if(hero>105)StudioTheme.label(g,font,"Load the replay for live world preview",px+17,top+93,StudioTheme.SOFT);
+        heading(g,"ReFlash Editor","Non-destructive editing  /  select a recording, cut, preview, export",x,y);
+        int top=editorTop(y,h);
+        int hero=editorPreviewHeight(h);
+        // Editing workspace: primary playback viewport with a compact clip inspector.
+        boolean inspector=w>=520 && hero>=102;
+        int gap=10,previewW=inspector?Math.max(245,(w-gap)*67/100):w;
+        int inspectorX=x+previewW+gap,inspectorW=w-previewW-gap;
+        StudioTheme.softPanel(g,x,top,previewW,hero);
+        StudioTheme.rounded(g,x+3,top+3,previewW-6,hero-6,0xFF080D19);
+        StudioTheme.gradient(g,x+3,top+3,previewW-6,2,StudioTheme.PURPLE,StudioTheme.CYAN,30);
+        StudioTheme.label(g,font,hero<64?"PREVIEW  /  OPEN WORLD":"PREVIEW  /  REPLAY WORLD",x+15,top+(hero<64?10:13),StudioTheme.CYAN);
+        if(hero>=96){
+            int pcx=x+previewW/2,pcy=top+hero/2-3;
+            StudioTheme.rounded(g,pcx-26,pcy-25,52,50,0xFF1E2B45);
+            StudioTheme.border(g,pcx-26,pcy-25,52,50,StudioTheme.BORDER);
+            StudioTheme.icon(g,"play",pcx-8,pcy-8,StudioTheme.CYAN);
+            StudioTheme.centered(g,font,editingProject==null?"Select a replay to begin":"OPEN REPLAY PREVIEW",pcx,pcy+34,StudioTheme.TEXT);
+        }else if(hero>=64){
+            StudioTheme.centered(g,font,editingProject==null?"No replay selected":"Preview opens in replay world",x+previewW/2,top+hero/2+3,StudioTheme.MUTED);
         }
-        StudioTheme.label(g,font,editingProject==null?"CHOOSE A RECORDING IN LIBRARY":"EDITING SAVED REPLAY",x+16,top+15,StudioTheme.CYAN);
-        if(editingProject!=null){
-            String title=replayList.get(selectedReplay).fileName();
-            StudioTheme.label(g,font,fit(title,w*50/100-20),x+16,top+35,StudioTheme.TEXT);
-            StudioTheme.label(g,font,"SOURCE: "+(editingProject.sourceTicks()/20.0)+"s   EDITED: "+(editingProject.lengthTicks()/20.0)+"s",x+16,top+53,StudioTheme.MUTED);
-            if(hero>85)StudioTheme.label(g,font,editingProject.hasMicrophoneTrack()?"Mic audio embedded":"No microphone track detected",x+16,top+72,
-                    editingProject.hasMicrophoneTrack()?StudioTheme.GREEN:StudioTheme.AMBER);
+        if(hero>=150){
+            String source=editingProject==null?"No media loaded":replayList.get(selectedReplay).fileName();
+            StudioTheme.label(g,font,fit(source,previewW-34),x+15,top+hero-35,StudioTheme.TEXT);
+            StudioTheme.label(g,font,"Actual replay view opens with the Preview Replay button",x+15,top+hero-18,StudioTheme.SOFT);
         }
-        int timelineY=top+hero+8;
-        int timelineH=Math.min(151,Math.max(28,y+h-55-timelineY));
-        if(editingProject!=null && timelineH>27){
-            StudioTheme.softPanel(g,x,timelineY,w,timelineH);
-            StudioTheme.label(g,font,"CUT TIMELINE",x+14,timelineY+8,StudioTheme.PURPLE);
-            int yy=timelineY+25,areaX=x+15,areaW=w-30;
-            int total=Math.max(1,editingProject.lengthTicks()),cursor=0;
-            for(int i=0;i<editingProject.clips().size();i++){
-                var c=editingProject.clips().get(i);
-                int ww=Math.max(2,(int)((long)c.length()*areaW/total));
-                StudioTheme.rect(g,areaX+cursor,yy,Math.min(ww,areaW-cursor),9,i==selectedClip?StudioTheme.PURPLE:StudioTheme.CYAN);
-                cursor+=ww;if(cursor>=areaW)break;
+        if(inspector){
+            StudioTheme.softPanel(g,inspectorX,top,inspectorW,hero);
+            StudioTheme.label(g,font,"CLIP INSPECTOR",inspectorX+13,top+15,StudioTheme.PURPLE);
+            StudioTheme.rect(g,inspectorX+13,top+34,inspectorW-26,1,StudioTheme.BORDER);
+            if(editingProject==null){
+                StudioTheme.label(g,font,"Nothing selected",inspectorX+13,top+53,StudioTheme.TEXT);
+                StudioTheme.label(g,font,"Open a replay from Library",inspectorX+13,top+73,StudioTheme.MUTED);
+            }else{
+                String[] stats={
+                    "SOURCE   "+String.format(Locale.ROOT,"%.2f s",editingProject.sourceTicks()/20.0),
+                    "EDITED   "+String.format(Locale.ROOT,"%.2f s",editingProject.lengthTicks()/20.0),
+                    "CLIPS    "+editingProject.clips().size(),
+                    "ACTIVE   "+(selectedClip+1)+" / "+editingProject.clips().size(),
+                    "PLAYHEAD "+String.format(Locale.ROOT,"%.2f s",playheadSourceTick/20.0),
+                    editingProject.hasMicrophoneTrack()?"MIC TRACK  PRESENT":"MIC TRACK  NONE"
+                };
+                for(int i=0;i<stats.length;i++){
+                    int yy=top+48+i*23;
+                    if(yy+10<top+hero-5)StudioTheme.label(g,font,fit(stats[i],inspectorW-24),inspectorX+13,yy,i==3?StudioTheme.CYAN:StudioTheme.TEXT);
+                }
             }
-            int px=EditorTimeline.pixelAt(editingProject.clips(),areaW,selectedClip,playheadSourceTick);
-            StudioTheme.rect(g,areaX+px,yy-6,2,22,StudioTheme.AMBER);
-            if(timelineH>46){
-                var c=editingProject.clips().get(selectedClip);
-                String text="Clip "+(selectedClip+1)+" / "+editingProject.clips().size()+"  |  Playhead "+(playheadSourceTick/20.0)+"s  |  "+c.startTick()/20.0+"-"+c.endTick()/20.0+"s"+(editingProject.dirty()?"  *":"");
-                StudioTheme.label(g,font,fit(text,w-25),x+14,timelineY+36,StudioTheme.TEXT);
+        }
+        // NLE-like timeline: ruler, labeled track, clip regions, and movable playhead.
+        int timelineY=top+hero+8;
+        int timelineH=editorTimelineHeight(y,h,timelineY);
+        if(timelineH>27){
+            StudioTheme.softPanel(g,x,timelineY,w,timelineH);
+            StudioTheme.label(g,font,"TIMELINE  /  CUTS",x+14,timelineY+8,StudioTheme.PURPLE);
+            if(editingProject==null){
+                if(timelineH>50)StudioTheme.label(g,font,"Choose a recording in Library to create an editable timeline",x+14,timelineY+30,StudioTheme.MUTED);
+            }else{
+                int areaX=x+15,areaW=w-30;
+                int total=Math.max(1,editingProject.lengthTicks());
+                int rulerY=timelineY+(timelineH<65?19:30);
+                StudioTheme.rect(g,areaX,rulerY,areaW,1,StudioTheme.BORDER);
+                for(int t=0;t<=4;t++){
+                    int px=areaX+areaW*t/4;
+                    StudioTheme.rect(g,px,rulerY,1,6,StudioTheme.SOFT);
+                    if(w>=300 && timelineH>=65)StudioTheme.label(g,font,String.format(Locale.ROOT,"%.1fs",total*t/80.0),
+                            Math.min(x+w-42,px+2),rulerY-12,StudioTheme.MUTED);
+                }
+                int barY=timelineY+(timelineH<65?25:42),clipAreaW=areaW,cursor=0;
+                int barH=timelineH<65?Math.max(10,Math.min(16,timelineH-28)):22;
+                StudioTheme.rect(g,areaX,barY,clipAreaW,barH,0xFF0E1B32);
+                for(int i=0;i<editingProject.clips().size();i++){
+                    var c=editingProject.clips().get(i);
+                    int ww=Math.max(2,(int)((long)c.length()*clipAreaW/total));
+                    int visible=Math.min(ww,clipAreaW-cursor);
+                    if(visible<=0)break;
+                    int shade=i==selectedClip?0xFF7446D3:0xFF235A83;
+                    StudioTheme.rounded(g,areaX+cursor,barY,visible,barH,shade);
+                    StudioTheme.border(g,areaX+cursor,barY,visible,barH,i==selectedClip?StudioTheme.PURPLE:StudioTheme.CYAN);
+                    if(visible>42 && barH>=17)StudioTheme.label(g,font,"CLIP "+(i+1),areaX+cursor+7,barY+5,StudioTheme.TEXT);
+                    cursor+=ww;
+                }
+                int head=EditorTimeline.pixelAt(editingProject.clips(),clipAreaW,selectedClip,playheadSourceTick);
+                StudioTheme.rect(g,areaX+head,barY-(timelineH<65?4:11),2,barH+(timelineH<65?7:17),StudioTheme.AMBER);
+                if(timelineH>=65)StudioTheme.diamond(g,areaX+head+1,barY-10,4,StudioTheme.AMBER);
+                if(timelineH>=86){
+                    String info="CLIP "+(selectedClip+1)+" / "+editingProject.clips().size()+
+                        "    POSITION "+String.format(Locale.ROOT,"%.2fs",playheadSourceTick/20.0)+
+                        (editingProject.dirty()?"    * UNSAVED":"    SAVED");
+                    StudioTheme.label(g,font,fit(info,w-28),x+15,timelineY+74,StudioTheme.TEXT);
+                }
             }
         }
     }
@@ -945,7 +1024,7 @@ public final class ReFlashScreen extends Screen {
             case PRIMARY->{fill=hot?0xFFCE9DFF:StudioTheme.PURPLE_DARK;textColor=StudioTheme.TEXT;stroke=StudioTheme.PURPLE;}
             case DANGER->{fill=hot?0xFFC84875:0xFF792642;textColor=StudioTheme.TEXT;stroke=StudioTheme.RED;}
             case NAV->{fill=c.selected()?0xFF282044:hot?0xFF20243A:StudioTheme.SIDEBAR;textColor=c.selected()?StudioTheme.TEXT:StudioTheme.MUTED;stroke=c.selected()?StudioTheme.PURPLE:fill;}
-            case SELECTOR->{fill=c.selected()?0xFF4A286E:hot?0xFF2A3551:0xFF1B263C;textColor=c.selected()?StudioTheme.TEXT:StudioTheme.SOFT;stroke=c.selected()?StudioTheme.PURPLE:StudioTheme.BORDER;}
+            case SELECTOR->{fill=c.selected()?0xFF4A286E:hot?0xFF2A3551:0xFF1B263C;textColor=c.selected()?StudioTheme.TEXT:StudioTheme.MUTED;stroke=c.selected()?StudioTheme.PURPLE:StudioTheme.BORDER;}
             case TOGGLE->{fill=c.selected()?0xFF144A51:0xFF2A3146;textColor=c.selected()?StudioTheme.CYAN:StudioTheme.MUTED;stroke=c.selected()?StudioTheme.CYAN:StudioTheme.BORDER;}
             case ROW->{fill=c.selected()?0xFF202F49:hot?0xFF1D2A43:StudioTheme.PANEL;textColor=StudioTheme.TEXT;stroke=c.selected()?StudioTheme.CYAN:StudioTheme.BORDER;}
             case SECONDARY->{fill=hot?StudioTheme.PANEL_HOVER:StudioTheme.PANEL_ALT;textColor=StudioTheme.TEXT;stroke=hot?StudioTheme.CYAN:StudioTheme.BORDER;}

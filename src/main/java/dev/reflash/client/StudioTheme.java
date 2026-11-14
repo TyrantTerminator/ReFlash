@@ -117,7 +117,7 @@ public final class StudioTheme {
             case "settings" -> {rect(g,x+6,y+1,4,14,color);rect(g,x+1,y+6,14,4,color);rounded(g,x+4,y+4,8,8,color);rounded(g,x+6,y+6,4,4,BASE);}
             case "performance" -> {rect(g,x+1,y+10,3,4,color);rect(g,x+6,y+6,3,8,color);rect(g,x+11,y+3,3,11,color);}
             case "export" -> {rect(g,x+2,y+12,12,3,color);rect(g,x+7,y+3,2,10,color);rect(g,x+4,y+8,3,2,color);rect(g,x+9,y+8,3,2,color);}
-            case "play" -> {for(int i=0;i<9;i++)rect(g,x+4+i/3,y+3+i,2,1,color);}
+            case "play" -> {for(int i=0;i<11;i++){int len=1+Math.min(i,10-i)/2;rect(g,x+4,y+2+i,len+3,1,color);}}
             case "camera" -> {rect(g,x+1,y+5,14,9,color);rect(g,x+4,y+3,6,2,color);rounded(g,x+5,y+7,6,5,BASE);}
             case "spark" -> {rect(g,x+7,y+1,2,14,color);rect(g,x+1,y+7,14,2,color);diamond(g,x+8,y+8,4,color);}
             case "folder" -> {rect(g,x+1,y+5,14,9,color);rect(g,x+3,y+3,6,3,color);}
