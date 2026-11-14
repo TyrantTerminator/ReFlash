@@ -95,7 +95,7 @@ public final class NativeReplayExporter {
             Object nativeSettings=settingsClass.getConstructor(Path.class,List.class,int.class,int.class,int.class,
                     Path.class,String.class,String.class,int.class,boolean.class,float.class,float.class)
                     .newInstance(project.replayPath(),nativeClips,size[0],size[1],fps,output,
-                            FfmpegCheck.candidate(gameDir),args,0,false,ReFlashClient.preferences().includeGameAudio()?1.0f:0.0f,project.hasMicrophoneTrack()?1.0f:0.0f);
+                            FfmpegCheck.candidate(gameDir),args,0,false,(ReFlashClient.preferences()==null || ReFlashClient.preferences().includeGameAudio())?1.0f:0.0f,project.hasMicrophoneTrack()?1.0f:0.0f);
             Class<?> session=Class.forName(BASE+"export.ExportSession");
             // Momenton manages replay loading, world audio and rendering on its own.
             reflashParent=parent;
