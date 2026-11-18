@@ -1,0 +1,110 @@
+--- a/src/dev/reflash/client/ReFlashAudioSource69.java
++++ b/src/dev/reflash/client/ReFlashAudioSource69.java
+@@ -39,10 +39,9 @@
+             }
+             System.err.println("[ReFlash 0.17.69] WARNING: desktop audio WAV has no audible PCM samples; retaining native replay audio.");
+             return false;
+-        } catch (Exception e) {
+-            // A sample that cannot be decoded here may still work in FFmpeg; use the legacy path.
+-            System.err.println("[ReFlash 0.17.69] Desktop WAV sound check inconclusive: " + e);
+-            return entry.getSize() > 4096;
++        } catch (IOException | javax.sound.sampled.UnsupportedAudioFileException e) {
++            System.err.println("[ReFlash] Cannot read desktop WAV; retaining native replay audio: " + e);
++            return false;
+         }
+     }
+ }
+--- a/src/dev/reflash/client/ReFlashAudioWarp69.java
++++ b/src/dev/reflash/client/ReFlashAudioWarp69.java
+@@ -110,6 +110,12 @@
+                 }
+                 double rate=f.getSampleRate();
+                 long frames=Math.round(map.totalTicks*rate/20.0);
++                long sourceFrames=source.getFrameLength();
++                double firstPos=map.inSeconds(0.0,microphone)*rate;
++                double lastPos=map.inSeconds((frames-1)/(double)rate,microphone)*rate;
++                if (sourceFrames<=0 || lastPos<0 || firstPos>sourceFrames-1)
++                    throw new IOException("Replay clock and source WAV have no overlapping samples");
++
+                 long bytes=frames*f.getFrameSize();
+                 if (bytes>0xffffffffL-36) { System.err.println("[ReFlash 0.17.69] Audio exceeds WAV 4GiB limit"); return false; }
+                 try (OutputStream out=new BufferedOutputStream(Files.newOutputStream(tmp),131072)) {
+@@ -119,11 +125,12 @@
+                     byte[] lo=new byte[frameSize], hi=new byte[frameSize], buffer=new byte[65536];
+                     long lowerFrame=0;
+                     boolean loExists=readFrame(input,lo), hiExists=readFrame(input,hi);
++                    boolean usedSamples=false;
+                     int written=0;
+                     for (long frame=0;frame<frames;frame++) {
+                         double sec=map.inSeconds(frame/rate,microphone);
+                         double pos=sec*rate;
+-                        if (pos<0 || pos>source.getFrameLength()-1 || !loExists) {
++                        if (pos<0 || pos>sourceFrames-1) {
+                             for (int j=0;j<frameSize;j++) buffer[written++]=0;
+                         } else {
+                             long floor=(long)Math.floor(pos);
+@@ -134,6 +141,10 @@
+                                 lowerFrame++;
+                             }
+                             double fraction=pos-floor;
++                            if (!loExists || (!hiExists && fraction>0 && floor+1<sourceFrames))
++                                throw new EOFException("Source WAV ended before the mapped replay sample");
++
++                            usedSamples=true;
+                             for (int ch=0;ch<channels;ch++) {
+                                 int p=ch*2;
+                                 int s0=(short)((lo[p]&255)|(lo[p+1]<<8));
+@@ -146,6 +157,7 @@
+                         }
+                         if (written+frameSize>buffer.length) { out.write(buffer,0,written); written=0; }
+                     }
++                    if (!usedSamples) throw new IOException("Replay clock did not map to any source WAV samples");
+                     if (written>0) out.write(buffer,0,written);
+                 }
+             }
+--- a/src/dev/reflash/client/ReFlashFfmpegSafety68.java
++++ b/src/dev/reflash/client/ReFlashFfmpegSafety68.java
+@@ -25,6 +25,7 @@
+         if (!output.getFileName().toString().equals(command.get(command.size() - 1))) {
+             throw new IOException("FFmpeg output path mismatch; refusing incomplete export");
+         }
++        if (Thread.currentThread().isInterrupted()) throw new IOException("Interrupted FFmpeg preflight");
+         installExplicitFont(command);
+         if (!isRawNv12(command)) {
+             System.err.println("[ReFlash 0.17.68] Unsupported FFmpeg input type for preflight, skipping");
+@@ -33,6 +34,7 @@
+         try {
+             probe(command, output);
+         } catch (IOException first) {
++            if (Thread.currentThread().isInterrupted()) throw first;
+             if (!switchQsvToSoftware(command)) {
+                 throw new IOException("FFmpeg preflight failed before rendering: " + first.getMessage(), first);
+             }
+@@ -41,6 +43,7 @@
+                 probe(command, output);
+                 System.err.println("[ReFlash 0.17.68] Software H.264 passed FFmpeg preflight; exporting with software encoder");
+             } catch (IOException second) {
++                if (Thread.currentThread().isInterrupted()) throw second;
+                 throw new IOException("Both QSV and software H.264 preflight failed: " + second.getMessage(), second);
+             }
+         }
+@@ -94,6 +97,7 @@
+     }
+ 
+     private static void probe(List<String> command, Path output) throws IOException {
++        if (Thread.currentThread().isInterrupted()) throw new IOException("Interrupted FFmpeg preflight");
+         Path dir = output.toAbsolutePath().getParent();
+         Files.createDirectories(dir);
+         Path probeOutput = Files.createTempFile(dir, ".reflash-encoder-probe-", ".mp4");
+@@ -146,8 +150,10 @@
+         } finally {
+             if (process != null && process.isAlive()) {
+                 process.destroyForcibly();
++                boolean interrupted = Thread.interrupted();
+                 try { process.waitFor(2, TimeUnit.SECONDS); }
+-                catch (InterruptedException e) { Thread.currentThread().interrupt(); }
++                catch (InterruptedException e) { interrupted = true; }
++                finally { if (interrupted) Thread.currentThread().interrupt(); }
+             }
+             try { Files.deleteIfExists(probeOutput); }
+             catch (IOException e) { System.err.println("[ReFlash 0.17.68] Could not clear temporary preflight video: " + e.getMessage()); }
