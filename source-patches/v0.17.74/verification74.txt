@@ -1,0 +1,15 @@
+ReFlash v0.17.74 — local verification only
+- Test74: 22 FPS/preferences/parser/filter checks passed
+- TestUi74: 7 simulated GUI overlap/BETA dismissal checks passed
+- TestDialog74: 4 input dialog label checks passed
+- TestLibrarySafety72: 13 checks passed
+- Test70: 22 MP4 command checks passed
+- TestQsvFallback71: 17 checks passed
+- TestLiveEncode71: FFmpeg 30-frame x264 320x180 output passed
+- TestAudit70: saved MP4 duration, FPS and frames report passed
+- Actual FFmpeg 1 FPS MP4: avg_frame_rate=1/1, nb_frames=2 passed
+- Verify74 ASM analysis: 14 modified/dependent classes, 383 methods passed
+- Archive integrity: unzip -t passed
+- Build reproducibility: two builds from v0.17.73 with matching SHA256
+
+EXCLUDED: real Minecraft launch/GUI test, Vulkan shader replay, 1 FPS real Minecraft export, Direct MP4 capture performance and ongoing audio-drift defects. These are not claimed fixed.
