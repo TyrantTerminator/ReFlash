@@ -1,0 +1,28 @@
+ReFlash v0.17.74 — Precision FPS BETA (private)
+Minecraft Fabric 1.21.11 · Java 21 · Credit: Tyrant Terminator
+
+ADDED
+- World Replay/export FPS selection now supports 1 to 240 inclusive in the existing custom output numeric screen; values below 1 and above 240 remain rejected.
+- Export Studio quick FPS presets include 1 FPS; 144 FPS remains selectable by entering it in the new custom FPS box.
+- Custom FPS (1–240) numeric dialog on the export FPS page where screen space permits. The confirm button says APPLY FPS (the ordinary rename screen still says Rename).
+- ReFlash v0.17.74 Precision FPS BETA release popup on the first ReFlash screen opened per Minecraft session, with a clickable X and interactions behind it blocked.
+
+RELIABILITY / GUI
+- Relaxed *all known export FPS lower-bound validators* (preferences, forecast size estimate, replay renderer, motion filter and video post-processing) to 1 FPS.
+- Compact-screen guard attempts to hide later overlapping buttons only for unusually small views (under 760 logical pixels wide or under 460 tall). Use larger window / lower GUI scale if needed; this is not a comprehensive responsive reflow.
+- Recording frame-rate setting remains unchanged. No changes to audio, codecs or rendering architecture.
+
+LOCAL VERIFICATION
+- 22 FPS/preferences/parser/filter tests, 7 simulated popup/layout tests, and 4 text-entry label tests passed.
+- 13 library path safety checks, 22 Direct MP4 command checks, 17 Intel QSV fallback checks passed.
+- Real FFmpeg software encode with watermark 30 frames and standalone 1-FPS output (2 frames / 2 seconds) passed.
+- 14 relevant Java classes / 383 methods passed local ASM bytecode analysis.
+- The archive integrity check passed.
+
+NOT PROVEN
+- In-game GUI rendering and click handling in Fabric with VulkanMod.
+- Real 1-FPS Minecraft replay rendering, output pacing, shader compatibility.
+- Complete elimination of UI overlap at extreme sizes.
+- Audio drift, gameplay performance, Direct MP4 frame drops and historically accurate HUDs remain separate known issues.
+
+PRIVATE BETA — Do not publish without owner approval. Remove the previous ReFlash JAR before installing.
